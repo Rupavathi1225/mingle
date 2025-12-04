@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Save } from "lucide-react";
 
 interface Prelanding {
   id: string;
@@ -19,8 +20,15 @@ interface Prelanding {
   is_active: boolean;
 }
 
+interface WebResult {
+  id: string;
+  title: string;
+}
+
 const PreLandingsTab = () => {
   const [prelandings, setPrelandings] = useState<Prelanding[]>([]);
+  const [webResults, setWebResults] = useState<WebResult[]>([]);
+  const [selectedWebResult, setSelectedWebResult] = useState("");
   const [key, setKey] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [mainImageUrl, setMainImageUrl] = useState("");
@@ -33,7 +41,13 @@ const PreLandingsTab = () => {
 
   useEffect(() => {
     fetchPrelandings();
+    fetchWebResults();
   }, []);
+
+  const fetchWebResults = async () => {
+    const { data } = await supabase.from('web_results').select('id, title').order('title');
+    if (data) setWebResults(data);
+  };
 
   const fetchPrelandings = async () => {
     const { data } = await supabase.from('prelandings').select('*').order('created_at', { ascending: false });
@@ -107,10 +121,33 @@ const PreLandingsTab = () => {
     <div className="space-y-6">
       <div className="bg-card p-6 rounded-lg border border-border">
         <h2 className="text-xl font-bold text-primary mb-6">
-          {editingId ? "Edit Pre-Landing" : "Create Pre-Landing"}
+          {editingId ? "Edit Pre-Landing" : "Add Pre-Landing"}
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="text-sm text-muted-foreground mb-2 block">Select Web Result</label>
+            <Select value={selectedWebResult} onValueChange={setSelectedWebResult}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {webResults.map((wr) => (
+                  <SelectItem key={wr.id} value={wr.id}>{wr.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="text-sm text-muted-foreground mb-2 block">Headline *</label>
+            <Input
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
+              className="bg-secondary border-border"
+            />
+          </div>
           <div>
             <label className="text-sm text-muted-foreground mb-2 block">Key (unique identifier)</label>
             <Input
@@ -121,14 +158,17 @@ const PreLandingsTab = () => {
               disabled={!!editingId}
             />
           </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Headline</label>
-            <Input
-              value={headline}
-              onChange={(e) => setHeadline(e.target.value)}
+
+          <div className="md:col-span-2">
+            <label className="text-sm text-muted-foreground mb-2 block">Description</label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               className="bg-secondary border-border"
+              rows={4}
             />
           </div>
+
           <div>
             <label className="text-sm text-muted-foreground mb-2 block">Logo URL</label>
             <Input
@@ -145,30 +185,26 @@ const PreLandingsTab = () => {
               className="bg-secondary border-border"
             />
           </div>
+
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Subtitle</label>
+            <label className="text-sm text-muted-foreground mb-2 block">Email Placeholder</label>
             <Input
               value={subtitle}
               onChange={(e) => setSubtitle(e.target.value)}
+              placeholder="Enter your email"
               className="bg-secondary border-border"
             />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Redirect Description</label>
+            <label className="text-sm text-muted-foreground mb-2 block">CTA Button Text</label>
             <Input
               value={redirectDescription}
               onChange={(e) => setRedirectDescription(e.target.value)}
+              placeholder="Get Started"
               className="bg-secondary border-border"
             />
           </div>
-          <div className="md:col-span-2">
-            <label className="text-sm text-muted-foreground mb-2 block">Description</label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="bg-secondary border-border"
-            />
-          </div>
+
           <div className="flex items-center gap-2">
             <Switch checked={isActive} onCheckedChange={setIsActive} />
             <label className="text-sm text-muted-foreground">Active</label>
@@ -176,7 +212,10 @@ const PreLandingsTab = () => {
         </div>
 
         <div className="flex gap-2 mt-6">
-          <Button onClick={handleSave}>{editingId ? "Update" : "Create"}</Button>
+          <Button onClick={handleSave} className="bg-primary">
+            <Save className="h-4 w-4 mr-2" />
+            {editingId ? "Update Pre-Landing" : "Save Pre-Landing"}
+          </Button>
           {editingId && <Button variant="outline" onClick={resetForm}>Cancel</Button>}
         </div>
       </div>
