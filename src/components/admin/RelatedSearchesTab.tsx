@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface RelatedSearch {
   id: string;
@@ -16,6 +18,14 @@ interface RelatedSearch {
   is_active: boolean;
 }
 
+interface ClickDetail {
+  id: string;
+  ip_address: string | null;
+  country: string | null;
+  device_type: string | null;
+  timestamp: string | null;
+}
+
 const RelatedSearchesTab = () => {
   const [searches, setSearches] = useState<RelatedSearch[]>([]);
   const [searchText, setSearchText] = useState("");
@@ -25,6 +35,9 @@ const RelatedSearchesTab = () => {
   const [displayOrder, setDisplayOrder] = useState(0);
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [clickDetails, setClickDetails] = useState<ClickDetail[]>([]);
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const [selectedSearchName, setSelectedSearchName] = useState("");
 
   useEffect(() => {
     fetchSearches();
@@ -86,6 +99,18 @@ const RelatedSearchesTab = () => {
     setPosition(1);
     setDisplayOrder(0);
     setIsActive(true);
+  };
+
+  const handleViewBreakdown = async (search: RelatedSearch) => {
+    const { data } = await supabase
+      .from('click_tracking')
+      .select('*')
+      .eq('related_search_id', search.id)
+      .order('timestamp', { ascending: false });
+    
+    setClickDetails(data || []);
+    setSelectedSearchName(search.search_text);
+    setShowBreakdown(true);
   };
 
   return (
@@ -164,6 +189,9 @@ const RelatedSearchesTab = () => {
                 </p>
               </div>
               <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => handleViewBreakdown(search)}>
+                  <Eye className="h-4 w-4 mr-1" /> View Breakdown
+                </Button>
                 <Button size="icon" variant="outline" onClick={() => handleEdit(search)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -175,6 +203,41 @@ const RelatedSearchesTab = () => {
           ))}
         </div>
       </div>
+
+      {/* Click Breakdown Dialog */}
+      <Dialog open={showBreakdown} onOpenChange={setShowBreakdown}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Click Breakdown: {selectedSearchName}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-4">Total Clicks: {clickDetails.length}</p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>IP Address</TableHead>
+                <TableHead>Country</TableHead>
+                <TableHead>Device</TableHead>
+                <TableHead>Timestamp</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {clickDetails.map((click) => (
+                <TableRow key={click.id}>
+                  <TableCell>{click.ip_address || '-'}</TableCell>
+                  <TableCell>{click.country || '-'}</TableCell>
+                  <TableCell>{click.device_type || '-'}</TableCell>
+                  <TableCell>{click.timestamp ? new Date(click.timestamp).toLocaleString() : '-'}</TableCell>
+                </TableRow>
+              ))}
+              {clickDetails.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">No clicks recorded</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

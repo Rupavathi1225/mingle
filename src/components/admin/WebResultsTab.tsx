@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface WebResult {
   id: string;
@@ -20,6 +22,14 @@ interface WebResult {
   is_active: boolean;
 }
 
+interface ClickDetail {
+  id: string;
+  ip_address: string | null;
+  country: string | null;
+  device_type: string | null;
+  timestamp: string | null;
+}
+
 const WebResultsTab = () => {
   const [results, setResults] = useState<WebResult[]>([]);
   const [title, setTitle] = useState("");
@@ -32,6 +42,9 @@ const WebResultsTab = () => {
   const [worldwide, setWorldwide] = useState(true);
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [clickDetails, setClickDetails] = useState<ClickDetail[]>([]);
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const [selectedResultName, setSelectedResultName] = useState("");
 
   useEffect(() => {
     fetchResults();
@@ -102,6 +115,18 @@ const WebResultsTab = () => {
     setPrelandingKey("");
     setWorldwide(true);
     setIsActive(true);
+  };
+
+  const handleViewBreakdown = async (result: WebResult) => {
+    const { data } = await supabase
+      .from('click_tracking')
+      .select('*')
+      .eq('link_id', result.id)
+      .order('timestamp', { ascending: false });
+    
+    setClickDetails(data || []);
+    setSelectedResultName(result.title);
+    setShowBreakdown(true);
   };
 
   return (
@@ -211,6 +236,9 @@ const WebResultsTab = () => {
                 </div>
               </div>
               <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => handleViewBreakdown(result)}>
+                  <Eye className="h-4 w-4 mr-1" /> View Breakdown
+                </Button>
                 <Button size="icon" variant="outline" onClick={() => handleEdit(result)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -222,6 +250,41 @@ const WebResultsTab = () => {
           ))}
         </div>
       </div>
+
+      {/* Click Breakdown Dialog */}
+      <Dialog open={showBreakdown} onOpenChange={setShowBreakdown}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Click Breakdown: {selectedResultName}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-4">Total Clicks: {clickDetails.length}</p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>IP Address</TableHead>
+                <TableHead>Country</TableHead>
+                <TableHead>Device</TableHead>
+                <TableHead>Timestamp</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {clickDetails.map((click) => (
+                <TableRow key={click.id}>
+                  <TableCell>{click.ip_address || '-'}</TableCell>
+                  <TableCell>{click.country || '-'}</TableCell>
+                  <TableCell>{click.device_type || '-'}</TableCell>
+                  <TableCell>{click.timestamp ? new Date(click.timestamp).toLocaleString() : '-'}</TableCell>
+                </TableRow>
+              ))}
+              {clickDetails.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">No clicks recorded</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
