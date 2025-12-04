@@ -14,7 +14,310 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      click_tracking: {
+        Row: {
+          click_type: string
+          country: string | null
+          device_type: string | null
+          id: string
+          ip_address: string | null
+          link_id: string | null
+          related_search_id: string | null
+          session_id: string
+          timestamp: string | null
+        }
+        Insert: {
+          click_type: string
+          country?: string | null
+          device_type?: string | null
+          id?: string
+          ip_address?: string | null
+          link_id?: string | null
+          related_search_id?: string | null
+          session_id: string
+          timestamp?: string | null
+        }
+        Update: {
+          click_type?: string
+          country?: string | null
+          device_type?: string | null
+          id?: string
+          ip_address?: string | null
+          link_id?: string | null
+          related_search_id?: string | null
+          session_id?: string
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "click_tracking_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "web_results"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "click_tracking_related_search_id_fkey"
+            columns: ["related_search_id"]
+            isOneToOne: false
+            referencedRelation: "related_searches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_captures: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          prelanding_key: string
+          web_result_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          prelanding_key: string
+          web_result_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          prelanding_key?: string
+          web_result_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_captures_web_result_id_fkey"
+            columns: ["web_result_id"]
+            isOneToOne: false
+            referencedRelation: "web_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_content: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      link_clicks: {
+        Row: {
+          id: string
+          total_clicks: number | null
+          unique_clicks: number | null
+          updated_at: string | null
+          web_result_id: string | null
+        }
+        Insert: {
+          id?: string
+          total_clicks?: number | null
+          unique_clicks?: number | null
+          updated_at?: string | null
+          web_result_id?: string | null
+        }
+        Update: {
+          id?: string
+          total_clicks?: number | null
+          unique_clicks?: number | null
+          updated_at?: string | null
+          web_result_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_clicks_web_result_id_fkey"
+            columns: ["web_result_id"]
+            isOneToOne: false
+            referencedRelation: "web_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prelandings: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          headline: string
+          id: string
+          is_active: boolean | null
+          key: string
+          logo_url: string | null
+          main_image_url: string | null
+          redirect_description: string | null
+          subtitle: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          headline: string
+          id?: string
+          is_active?: boolean | null
+          key: string
+          logo_url?: string | null
+          main_image_url?: string | null
+          redirect_description?: string | null
+          subtitle?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          headline?: string
+          id?: string
+          is_active?: boolean | null
+          key?: string
+          logo_url?: string | null
+          main_image_url?: string | null
+          redirect_description?: string | null
+          subtitle?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      related_searches: {
+        Row: {
+          created_at: string | null
+          display_order: number
+          id: string
+          is_active: boolean | null
+          position: number
+          search_text: string
+          title: string | null
+          updated_at: string | null
+          web_result_page: number
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean | null
+          position?: number
+          search_text: string
+          title?: string | null
+          updated_at?: string | null
+          web_result_page?: number
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean | null
+          position?: number
+          search_text?: string
+          title?: string | null
+          updated_at?: string | null
+          web_result_page?: number
+        }
+        Relationships: []
+      }
+      sessions: {
+        Row: {
+          country: string | null
+          created_at: string | null
+          device_type: string | null
+          id: string
+          ip_address: string | null
+          last_activity: string | null
+          session_id: string
+          source: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          id?: string
+          ip_address?: string | null
+          last_activity?: string | null
+          session_id: string
+          source?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          id?: string
+          ip_address?: string | null
+          last_activity?: string | null
+          session_id?: string
+          source?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      web_results: {
+        Row: {
+          backlink: string | null
+          country_codes: string[] | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          original_link: string
+          position: number
+          prelanding_key: string | null
+          title: string
+          updated_at: string | null
+          web_result_page: number
+          worldwide: boolean | null
+        }
+        Insert: {
+          backlink?: string | null
+          country_codes?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          original_link: string
+          position?: number
+          prelanding_key?: string | null
+          title: string
+          updated_at?: string | null
+          web_result_page?: number
+          worldwide?: boolean | null
+        }
+        Update: {
+          backlink?: string | null
+          country_codes?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          original_link?: string
+          position?: number
+          prelanding_key?: string | null
+          title?: string
+          updated_at?: string | null
+          web_result_page?: number
+          worldwide?: boolean | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
