@@ -21,9 +21,9 @@ const WebResult = () => {
   const [pageNumber, setPageNumber] = useState(1);
 
   useEffect(() => {
-    // Get page number from URL (e.g., /webresult?1)
-    const pageParam = searchParams.toString().split('&')[0];
-    const num = parseInt(pageParam) || 1;
+    // Get page number from URL (e.g., /webresult?wr=1)
+    const wr = searchParams.get('wr');
+    const num = parseInt(wr || '1') || 1;
     setPageNumber(num);
     fetchResults(num);
   }, [searchParams]);
