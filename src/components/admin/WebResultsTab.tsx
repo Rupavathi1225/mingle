@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { Pencil, Trash2, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface WebResult {
   id: string;
@@ -37,9 +38,7 @@ const WebResultsTab = () => {
   const [originalLink, setOriginalLink] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [webResultPage, setWebResultPage] = useState(1);
-  const [position, setPosition] = useState(0);
-  const [prelandingKey, setPrelandingKey] = useState("");
-  const [worldwide, setWorldwide] = useState(true);
+  const [sponsored, setSponsored] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [clickDetails, setClickDetails] = useState<ClickDetail[]>([]);
@@ -67,9 +66,7 @@ const WebResultsTab = () => {
       original_link: originalLink,
       logo_url: logoUrl || null,
       web_result_page: webResultPage,
-      position,
-      prelanding_key: prelandingKey || null,
-      worldwide,
+      worldwide: !sponsored, // Use worldwide field to store sponsored (inverted)
       is_active: isActive
     };
 
@@ -92,9 +89,7 @@ const WebResultsTab = () => {
     setOriginalLink(result.original_link);
     setLogoUrl(result.logo_url || "");
     setWebResultPage(result.web_result_page);
-    setPosition(result.position);
-    setPrelandingKey(result.prelanding_key || "");
-    setWorldwide(result.worldwide);
+    setSponsored(!result.worldwide);
     setIsActive(result.is_active);
   };
 
@@ -111,9 +106,7 @@ const WebResultsTab = () => {
     setOriginalLink("");
     setLogoUrl("");
     setWebResultPage(1);
-    setPosition(0);
-    setPrelandingKey("");
-    setWorldwide(true);
+    setSponsored(false);
     setIsActive(true);
   };
 
@@ -170,36 +163,23 @@ const WebResultsTab = () => {
             />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Pre-Landing Key</label>
-            <Input
-              value={prelandingKey}
-              onChange={(e) => setPrelandingKey(e.target.value)}
-              placeholder="Leave empty for direct link"
-              className="bg-secondary border-border"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Web Result Page</label>
-            <Input
-              type="number"
-              value={webResultPage}
-              onChange={(e) => setWebResultPage(parseInt(e.target.value) || 1)}
-              className="bg-secondary border-border"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Position</label>
-            <Input
-              type="number"
-              value={position}
-              onChange={(e) => setPosition(parseInt(e.target.value) || 0)}
-              className="bg-secondary border-border"
-            />
+            <label className="text-sm text-muted-foreground mb-2 block">Web Result Page (wr=)</label>
+            <Select value={String(webResultPage)} onValueChange={(v) => setWebResultPage(parseInt(v))}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1</SelectItem>
+                <SelectItem value="2">2</SelectItem>
+                <SelectItem value="3">3</SelectItem>
+                <SelectItem value="4">4</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <Switch checked={worldwide} onCheckedChange={setWorldwide} />
-              <label className="text-sm text-muted-foreground">Worldwide</label>
+              <Switch checked={sponsored} onCheckedChange={setSponsored} />
+              <label className="text-sm text-muted-foreground">Sponsored</label>
             </div>
             <div className="flex items-center gap-2">
               <Switch checked={isActive} onCheckedChange={setIsActive} />
@@ -231,7 +211,7 @@ const WebResultsTab = () => {
                 <div>
                   <p className="font-medium text-foreground">{result.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    Page: {result.web_result_page} | Pos: {result.position}
+                    Page: {result.web_result_page} {!result.worldwide && <span className="text-yellow-500">• Sponsored</span>}
                   </p>
                 </div>
               </div>
