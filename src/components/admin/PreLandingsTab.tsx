@@ -29,7 +29,7 @@ const PreLandingsTab = () => {
   const [prelandings, setPrelandings] = useState<Prelanding[]>([]);
   const [webResults, setWebResults] = useState<WebResult[]>([]);
   const [selectedWebResult, setSelectedWebResult] = useState("");
-  const [key, setKey] = useState("");
+  // Key is auto-generated from headline
   const [logoUrl, setLogoUrl] = useState("");
   const [mainImageUrl, setMainImageUrl] = useState("");
   const [headline, setHeadline] = useState("");
@@ -54,14 +54,18 @@ const PreLandingsTab = () => {
     if (data) setPrelandings(data);
   };
 
+  const generateKey = (text: string) => {
+    return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36);
+  };
+
   const handleSave = async () => {
-    if (!key || !headline) {
-      toast({ title: "Error", description: "Key and headline are required", variant: "destructive" });
+    if (!headline) {
+      toast({ title: "Error", description: "Headline is required", variant: "destructive" });
       return;
     }
 
     const payload = {
-      key,
+      key: editingId ? undefined : generateKey(headline),
       logo_url: logoUrl || null,
       main_image_url: mainImageUrl || null,
       headline,
@@ -72,14 +76,11 @@ const PreLandingsTab = () => {
     };
 
     if (editingId) {
-      await supabase.from('prelandings').update(payload).eq('id', editingId);
+      const { key, ...updatePayload } = payload;
+      await supabase.from('prelandings').update(updatePayload).eq('id', editingId);
       toast({ title: "Success", description: "Pre-landing updated!" });
     } else {
-      const { error } = await supabase.from('prelandings').insert(payload);
-      if (error?.code === '23505') {
-        toast({ title: "Error", description: "Key already exists", variant: "destructive" });
-        return;
-      }
+      await supabase.from('prelandings').insert(payload);
       toast({ title: "Success", description: "Pre-landing created!" });
     }
 
@@ -89,7 +90,6 @@ const PreLandingsTab = () => {
 
   const handleEdit = (prelanding: Prelanding) => {
     setEditingId(prelanding.id);
-    setKey(prelanding.key);
     setLogoUrl(prelanding.logo_url || "");
     setMainImageUrl(prelanding.main_image_url || "");
     setHeadline(prelanding.headline);
@@ -107,7 +107,6 @@ const PreLandingsTab = () => {
 
   const resetForm = () => {
     setEditingId(null);
-    setKey("");
     setLogoUrl("");
     setMainImageUrl("");
     setHeadline("");
@@ -149,13 +148,12 @@ const PreLandingsTab = () => {
             />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Key (unique identifier)</label>
+            <label className="text-sm text-muted-foreground mb-2 block">Subtitle</label>
             <Input
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder="e.g., offer1, promo2024"
+              value={subtitle}
+              onChange={(e) => setSubtitle(e.target.value)}
+              placeholder="Optional subtitle text"
               className="bg-secondary border-border"
-              disabled={!!editingId}
             />
           </div>
 
@@ -187,20 +185,11 @@ const PreLandingsTab = () => {
           </div>
 
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Email Placeholder</label>
-            <Input
-              value={subtitle}
-              onChange={(e) => setSubtitle(e.target.value)}
-              placeholder="Enter your email"
-              className="bg-secondary border-border"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">CTA Button Text</label>
+            <label className="text-sm text-muted-foreground mb-2 block">Redirect Description</label>
             <Input
               value={redirectDescription}
               onChange={(e) => setRedirectDescription(e.target.value)}
-              placeholder="Get Started"
+              placeholder="You will be redirected to..."
               className="bg-secondary border-border"
             />
           </div>
