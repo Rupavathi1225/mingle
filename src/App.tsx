@@ -20,7 +20,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Navigate to="/landing" replace />} />
           <Route path="/landing" element={<Landing />} />
-          <Route path="/webresult" element={<WebResult />} />
+          <Route path="/webresult/:wr" element={<WebResult />} />
           <Route path="/prelanding/:key" element={<PreLanding />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />

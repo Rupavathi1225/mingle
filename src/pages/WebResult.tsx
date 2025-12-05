@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, getDeviceType } from "@/hooks/useSession";
 
@@ -14,19 +14,15 @@ interface WebResult {
 }
 
 const WebResult = () => {
-  const [searchParams] = useSearchParams();
+  const { wr } = useParams();
   const navigate = useNavigate();
   const sessionId = useSession();
   const [results, setResults] = useState<WebResult[]>([]);
-  const [pageNumber, setPageNumber] = useState(1);
+  const pageNumber = parseInt(wr || '1') || 1;
 
   useEffect(() => {
-    // Get page number from URL (e.g., /webresult?wr=1)
-    const wr = searchParams.get('wr');
-    const num = parseInt(wr || '1') || 1;
-    setPageNumber(num);
-    fetchResults(num);
-  }, [searchParams]);
+    fetchResults(pageNumber);
+  }, [pageNumber]);
 
   const fetchResults = async (page: number) => {
     const { data } = await supabase

@@ -62,7 +62,7 @@ const Landing = () => {
       device_type: getDeviceType()
     });
 
-    navigate(`/webresult?wr=${search.web_result_page}`);
+    navigate(`/webresult/${search.web_result_page}`);
   };
 
   return (
