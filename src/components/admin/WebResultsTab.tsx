@@ -23,6 +23,18 @@ interface WebResult {
   is_active: boolean;
 }
 
+interface RelatedSearch {
+  id: string;
+  search_text: string;
+  web_result_page: number;
+}
+
+interface Prelanding {
+  id: string;
+  key: string;
+  headline: string;
+}
+
 interface ClickDetail {
   id: string;
   ip_address: string | null;
@@ -33,11 +45,14 @@ interface ClickDetail {
 
 const WebResultsTab = () => {
   const [results, setResults] = useState<WebResult[]>([]);
+  const [relatedSearches, setRelatedSearches] = useState<RelatedSearch[]>([]);
+  const [prelandings, setPrelandings] = useState<Prelanding[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [originalLink, setOriginalLink] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
-  const [webResultPage, setWebResultPage] = useState(1);
+  const [selectedRelatedSearch, setSelectedRelatedSearch] = useState("");
+  const [selectedPrelanding, setSelectedPrelanding] = useState("");
   const [sponsored, setSponsored] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,6 +62,8 @@ const WebResultsTab = () => {
 
   useEffect(() => {
     fetchResults();
+    fetchRelatedSearches();
+    fetchPrelandings();
   }, []);
 
   const fetchResults = async () => {
@@ -54,19 +71,40 @@ const WebResultsTab = () => {
     if (data) setResults(data);
   };
 
+  const fetchRelatedSearches = async () => {
+    const { data } = await supabase.from('related_searches').select('id, search_text, web_result_page').eq('is_active', true).order('web_result_page');
+    if (data) setRelatedSearches(data);
+  };
+
+  const fetchPrelandings = async () => {
+    const { data } = await supabase.from('prelandings').select('id, key, headline').eq('is_active', true);
+    if (data) setPrelandings(data);
+  };
+
   const handleSave = async () => {
-    if (!title || !originalLink) {
-      toast({ title: "Error", description: "Title and link are required", variant: "destructive" });
+    if (!title || !originalLink || !selectedRelatedSearch) {
+      toast({ title: "Error", description: "Title, link, and related search are required", variant: "destructive" });
       return;
     }
+
+    const relatedSearch = relatedSearches.find(rs => rs.id === selectedRelatedSearch);
+    if (!relatedSearch) {
+      toast({ title: "Error", description: "Please select a valid related search", variant: "destructive" });
+      return;
+    }
+
+    const selectedPrelandingData = selectedPrelanding && selectedPrelanding !== "none" 
+      ? prelandings.find(p => p.id === selectedPrelanding) 
+      : null;
 
     const payload = {
       title,
       description: description || null,
       original_link: originalLink,
       logo_url: logoUrl || null,
-      web_result_page: webResultPage,
-      worldwide: !sponsored, // Use worldwide field to store sponsored (inverted)
+      web_result_page: relatedSearch.web_result_page,
+      prelanding_key: selectedPrelandingData?.key || null,
+      worldwide: !sponsored,
       is_active: isActive
     };
 
@@ -88,7 +126,12 @@ const WebResultsTab = () => {
     setDescription(result.description || "");
     setOriginalLink(result.original_link);
     setLogoUrl(result.logo_url || "");
-    setWebResultPage(result.web_result_page);
+    // Find the related search that matches this web_result_page
+    const matchingRS = relatedSearches.find(rs => rs.web_result_page === result.web_result_page);
+    setSelectedRelatedSearch(matchingRS?.id || "");
+    // Find the prelanding that matches this prelanding_key
+    const matchingPL = prelandings.find(p => p.key === result.prelanding_key);
+    setSelectedPrelanding(matchingPL?.id || "");
     setSponsored(!result.worldwide);
     setIsActive(result.is_active);
   };
@@ -105,7 +148,8 @@ const WebResultsTab = () => {
     setDescription("");
     setOriginalLink("");
     setLogoUrl("");
-    setWebResultPage(1);
+    setSelectedRelatedSearch("");
+    setSelectedPrelanding("");
     setSponsored(false);
     setIsActive(true);
   };
@@ -120,6 +164,11 @@ const WebResultsTab = () => {
     setClickDetails(data || []);
     setSelectedResultName(result.title);
     setShowBreakdown(true);
+  };
+
+  const getRelatedSearchName = (webResultPage: number) => {
+    const rs = relatedSearches.find(r => r.web_result_page === webResultPage);
+    return rs?.search_text || `Page ${webResultPage}`;
   };
 
   return (
@@ -163,16 +212,33 @@ const WebResultsTab = () => {
             />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Web Result Page (wr=)</label>
-            <Select value={String(webResultPage)} onValueChange={(v) => setWebResultPage(parseInt(v))}>
+            <label className="text-sm text-muted-foreground mb-2 block">Related Search (determines page)</label>
+            <Select value={selectedRelatedSearch} onValueChange={setSelectedRelatedSearch}>
               <SelectTrigger className="bg-secondary border-border">
-                <SelectValue />
+                <SelectValue placeholder="Select related search" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">1</SelectItem>
-                <SelectItem value="2">2</SelectItem>
-                <SelectItem value="3">3</SelectItem>
-                <SelectItem value="4">4</SelectItem>
+                {relatedSearches.map((rs) => (
+                  <SelectItem key={rs.id} value={rs.id}>
+                    {rs.search_text} (Page {rs.web_result_page})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground mb-2 block">Prelanding (optional)</label>
+            <Select value={selectedPrelanding} onValueChange={setSelectedPrelanding}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue placeholder="No prelanding (direct link)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No prelanding (direct link)</SelectItem>
+                {prelandings.map((pl) => (
+                  <SelectItem key={pl.id} value={pl.id}>
+                    {pl.headline}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -211,7 +277,9 @@ const WebResultsTab = () => {
                 <div>
                   <p className="font-medium text-foreground">{result.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    Page: {result.web_result_page} {!result.worldwide && <span className="text-yellow-500">• Sponsored</span>}
+                    {getRelatedSearchName(result.web_result_page)} 
+                    {!result.worldwide && <span className="text-yellow-500"> • Sponsored</span>}
+                    {result.prelanding_key && <span className="text-blue-500"> • Has Prelanding</span>}
                   </p>
                 </div>
               </div>
