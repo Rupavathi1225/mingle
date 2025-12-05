@@ -97,8 +97,6 @@ const WebResult = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
-        <h2 className="text-xl text-muted-foreground mb-6">Web Results - Page {pageNumber}</h2>
-
         <div className="space-y-4">
           {results.map((result) => (
             <div
