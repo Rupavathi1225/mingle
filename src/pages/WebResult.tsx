@@ -102,15 +102,11 @@ const WebResult = () => {
           <div className="bg-slate-900 rounded-lg p-6 mb-8">
             <div className="space-y-8">
               {results.map((result, index) => (
-                <div key={result.id} className="space-y-3">
-                  {/* Title */}
-                  <h3 
-                    className="text-blue-400 hover:underline font-medium text-lg cursor-pointer"
-                    style={{ fontVariant: 'small-caps' }}
-                    onClick={() => handleResultClick(result)}
-                  >
-                    {result.title}
-                  </h3>
+                <div key={result.id} className="space-y-2">
+                  {/* MINGLEMOODY brand name */}
+                  <p className="text-white font-semibold tracking-wide uppercase text-sm">
+                    MINGLEMOODY
+                  </p>
                   
                   {/* Sponsored label and masked link */}
                   <div className="flex items-center gap-2 text-sm">
@@ -120,13 +116,22 @@ const WebResult = () => {
                     <span className="text-gray-400 cursor-pointer">⋮</span>
                   </div>
                   
+                  {/* Title */}
+                  <h3 
+                    className="text-blue-400 hover:underline font-medium text-lg cursor-pointer"
+                    style={{ fontVariant: 'small-caps' }}
+                    onClick={() => handleResultClick(result)}
+                  >
+                    {result.title}
+                  </h3>
+                  
                   {/* Description */}
                   <p className="text-gray-400 text-sm italic">{result.description}</p>
                   
                   {/* Visit Website Button */}
                   <button
                     onClick={() => handleResultClick(result)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded transition-colors flex items-center gap-2"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded transition-colors flex items-center gap-2 mt-2"
                   >
                     <span className="text-lg">➤</span>
                     Visit Website
