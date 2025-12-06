@@ -275,6 +275,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean | null
+          is_sponsored: boolean | null
           logo_url: string | null
           original_link: string
           position: number
@@ -291,6 +292,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_sponsored?: boolean | null
           logo_url?: string | null
           original_link: string
           position?: number
@@ -307,6 +309,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_sponsored?: boolean | null
           logo_url?: string | null
           original_link?: string
           position?: number

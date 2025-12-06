@@ -21,6 +21,7 @@ interface WebResult {
   prelanding_key: string | null;
   worldwide: boolean;
   is_active: boolean;
+  is_sponsored: boolean | null;
 }
 
 interface RelatedSearch {
@@ -104,7 +105,7 @@ const WebResultsTab = () => {
       logo_url: logoUrl || null,
       web_result_page: relatedSearch.web_result_page,
       prelanding_key: selectedPrelandingData?.key || null,
-      worldwide: !sponsored,
+      is_sponsored: sponsored,
       is_active: isActive
     };
 
@@ -132,7 +133,7 @@ const WebResultsTab = () => {
     // Find the prelanding that matches this prelanding_key
     const matchingPL = prelandings.find(p => p.key === result.prelanding_key);
     setSelectedPrelanding(matchingPL?.id || "");
-    setSponsored(!result.worldwide);
+    setSponsored(result.is_sponsored || false);
     setIsActive(result.is_active);
   };
 
@@ -278,7 +279,7 @@ const WebResultsTab = () => {
                   <p className="font-medium text-foreground">{result.title}</p>
                   <p className="text-sm text-muted-foreground">
                     {getRelatedSearchName(result.web_result_page)} 
-                    {!result.worldwide && <span className="text-yellow-500"> • Sponsored</span>}
+                    {result.is_sponsored && <span className="text-yellow-500"> • Sponsored</span>}
                     {result.prelanding_key && <span className="text-blue-500"> • Has Prelanding</span>}
                   </p>
                 </div>
