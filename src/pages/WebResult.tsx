@@ -103,20 +103,7 @@ const WebResult = () => {
             <div className="space-y-8">
               {results.map((result, index) => (
                 <div key={result.id} className="space-y-2">
-                  {/* MINGLEMOODY brand name */}
-                  <p className="text-white font-semibold tracking-wide uppercase text-sm">
-                    MINGLEMOODY
-                  </p>
-                  
-                  {/* Sponsored label and masked link */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-400">Sponsored</span>
-                    <span className="text-gray-400">·</span>
-                    <span className="text-gray-400">{getMaskedLink(index)}</span>
-                    <span className="text-gray-400 cursor-pointer">⋮</span>
-                  </div>
-                  
-                  {/* Title */}
+                  {/* Title first */}
                   <h3 
                     className="text-blue-400 hover:underline font-medium text-lg cursor-pointer"
                     style={{ fontVariant: 'small-caps' }}
@@ -124,6 +111,14 @@ const WebResult = () => {
                   >
                     {result.title}
                   </h3>
+                  
+                  {/* Sponsored label and masked link below title */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-400">Sponsored</span>
+                    <span className="text-gray-400">·</span>
+                    <span className="text-gray-400">{getMaskedLink(index)}</span>
+                    <span className="text-gray-400 cursor-pointer">⋮</span>
+                  </div>
                   
                   {/* Description */}
                   <p className="text-gray-400 text-sm italic">{result.description}</p>
