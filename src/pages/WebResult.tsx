@@ -11,13 +11,15 @@ interface WebResult {
   logo_url: string | null;
   prelanding_key: string | null;
   position: number;
+  is_sponsored: boolean | null;
 }
 
 const WebResult = () => {
   const { wr } = useParams();
   const navigate = useNavigate();
   const sessionId = useSession();
-  const [results, setResults] = useState<WebResult[]>([]);
+  const [sponsoredResults, setSponsoredResults] = useState<WebResult[]>([]);
+  const [normalResults, setNormalResults] = useState<WebResult[]>([]);
   const pageNumber = parseInt(wr || '1') || 1;
 
   useEffect(() => {
@@ -31,7 +33,10 @@ const WebResult = () => {
       .eq('web_result_page', page)
       .eq('is_active', true)
       .order('position', { ascending: true });
-    if (data) setResults(data);
+    if (data) {
+      setSponsoredResults(data.filter(r => r.is_sponsored));
+      setNormalResults(data.filter(r => !r.is_sponsored));
+    }
   };
 
   const handleResultClick = async (result: WebResult) => {
@@ -98,10 +103,10 @@ const WebResult = () => {
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         {/* Sponsored Results Section */}
-        {results.length > 0 && (
+        {sponsoredResults.length > 0 && (
           <div className="bg-slate-900 rounded-lg p-6 mb-8">
             <div className="space-y-8">
-              {results.map((result, index) => (
+              {sponsoredResults.map((result, index) => (
                 <div key={result.id} className="space-y-2">
                   {/* Title first */}
                   <h3 
@@ -137,7 +142,27 @@ const WebResult = () => {
           </div>
         )}
 
-        {results.length === 0 && (
+        {/* Normal Web Results Section */}
+        {normalResults.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-muted-foreground text-sm font-medium">Web Results</h2>
+            {normalResults.map((result) => (
+              <div
+                key={result.id}
+                className="flex items-start gap-4 py-4 cursor-pointer hover:bg-secondary/30 px-4 rounded-lg transition-colors"
+                onClick={() => handleResultClick(result)}
+              >
+                {getLogoDisplay(result)}
+                <div className="flex-1">
+                  <h3 className="text-primary hover:underline font-medium text-lg">{result.title}</h3>
+                  <p className="text-muted-foreground text-sm mt-1">{result.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {sponsoredResults.length === 0 && normalResults.length === 0 && (
           <p className="text-center text-muted-foreground py-8">No results found for this page.</p>
         )}
       </main>
