@@ -7,6 +7,7 @@ import Landing from "./pages/Landing";
 import WebResult from "./pages/WebResult";
 import PreLanding from "./pages/PreLanding";
 import Admin from "./pages/Admin";
+import Blog from "./pages/Blog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/landing" element={<Landing />} />
           <Route path="/webresult/:wr" element={<WebResult />} />
           <Route path="/prelanding/:key" element={<PreLanding />} />
+          <Route path="/blog/:slug" element={<Blog />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
