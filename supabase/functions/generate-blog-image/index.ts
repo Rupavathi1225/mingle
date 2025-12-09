@@ -25,10 +25,10 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const prompt = `Create a professional blog featured image for an article titled "${title}". 
-    The image should be modern, visually appealing, and relevant to the topic. 
-    Use a clean design with subtle gradients and professional colors. 
-    The image should work well as a blog header. 16:9 aspect ratio.`;
+    const prompt = `Generate a professional blog featured image for: "${title}". Modern, clean design with gradients and professional colors. 16:9 aspect ratio blog header.`;
+
+    console.log("Generating image for title:", title);
+    console.log("Using prompt:", prompt);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -48,7 +48,12 @@ serve(async (req) => {
       }),
     });
 
+    console.log("API response status:", response.status);
+
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI gateway error:", response.status, errorText);
+      
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
@@ -61,17 +66,39 @@ serve(async (req) => {
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("Failed to generate image");
+      throw new Error(`API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    console.log("Full API response:", JSON.stringify(data, null, 2));
+
+    // Try multiple paths to find the image URL
+    let imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    
+    // Alternative path if images are structured differently
+    if (!imageUrl && data.choices?.[0]?.message?.content) {
+      const content = data.choices[0].message.content;
+      // Check if content itself contains base64 image
+      if (typeof content === 'string' && content.startsWith('data:image')) {
+        imageUrl = content;
+      }
+    }
+
+    // Check for images array at message level
+    if (!imageUrl && data.choices?.[0]?.message?.images) {
+      const images = data.choices[0].message.images;
+      console.log("Images array:", JSON.stringify(images, null, 2));
+      if (Array.isArray(images) && images.length > 0) {
+        imageUrl = images[0]?.image_url?.url || images[0]?.url || images[0];
+      }
+    }
 
     if (!imageUrl) {
-      throw new Error("No image generated");
+      console.error("No image URL found in response. Response structure:", JSON.stringify(data, null, 2));
+      throw new Error("No image generated - check logs for response structure");
     }
+
+    console.log("Image URL found, length:", imageUrl.length);
 
     return new Response(
       JSON.stringify({ imageUrl }),
