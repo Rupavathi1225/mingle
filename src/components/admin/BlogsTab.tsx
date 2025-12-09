@@ -147,7 +147,7 @@ const BlogsTab = () => {
       content: content || null,
       featured_image: featuredImage || null,
       status,
-      related_search_id: relatedSearchId || null,
+      related_search_id: relatedSearchId === "none" ? null : relatedSearchId || null,
     };
 
     if (editingBlog) {
@@ -325,7 +325,7 @@ const BlogsTab = () => {
                     <SelectValue placeholder="Select a related search" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {relatedSearches.map((search) => (
                       <SelectItem key={search.id} value={search.id}>
                         {search.title || search.search_text}
