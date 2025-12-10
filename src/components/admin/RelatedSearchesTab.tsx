@@ -3,10 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Trash2, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import BulkActionToolbar from "./BulkActionToolbar";
+import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 
 interface RelatedSearch {
   id: string;
@@ -28,6 +31,7 @@ interface ClickDetail {
 
 const RelatedSearchesTab = () => {
   const [searches, setSearches] = useState<RelatedSearch[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchText, setSearchText] = useState("");
   const [title, setTitle] = useState("");
   const [webResultPage, setWebResultPage] = useState(1);
@@ -46,6 +50,68 @@ const RelatedSearchesTab = () => {
   const fetchSearches = async () => {
     const { data } = await supabase.from('related_searches').select('*').order('display_order');
     if (data) setSearches(data);
+  };
+
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(searches.map(s => s.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleExportAll = () => {
+    const csv = convertToCSV(searches, ['id', 'search_text', 'title', 'web_result_page', 'position', 'display_order', 'is_active']);
+    downloadCSV(csv, 'related_searches_all.csv');
+    toast({ title: "Success", description: "Exported all searches to CSV" });
+  };
+
+  const handleExportSelected = () => {
+    const selected = searches.filter(s => selectedIds.has(s.id));
+    const csv = convertToCSV(selected, ['id', 'search_text', 'title', 'web_result_page', 'position', 'display_order', 'is_active']);
+    downloadCSV(csv, 'related_searches_selected.csv');
+    toast({ title: "Success", description: `Exported ${selected.length} searches to CSV` });
+  };
+
+  const handleCopy = () => {
+    const selected = searches.filter(s => selectedIds.has(s.id));
+    const text = selected.map(s => `${s.search_text} - ${s.title || 'No title'}`).join('\n');
+    navigator.clipboard.writeText(text);
+    toast({ title: "Success", description: "Copied to clipboard" });
+  };
+
+  const handleBulkActivate = async () => {
+    const ids = Array.from(selectedIds);
+    await supabase.from('related_searches').update({ is_active: true }).in('id', ids);
+    toast({ title: "Success", description: `Activated ${ids.length} searches` });
+    fetchSearches();
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDeactivate = async () => {
+    const ids = Array.from(selectedIds);
+    await supabase.from('related_searches').update({ is_active: false }).in('id', ids);
+    toast({ title: "Success", description: `Deactivated ${ids.length} searches` });
+    fetchSearches();
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await supabase.from('related_searches').delete().in('id', ids);
+    toast({ title: "Success", description: `Deleted ${ids.length} searches` });
+    fetchSearches();
+    setSelectedIds(new Set());
   };
 
   const handleSave = async () => {
@@ -179,14 +245,36 @@ const RelatedSearchesTab = () => {
       <div className="bg-card p-6 rounded-lg border border-border">
         <h2 className="text-xl font-bold text-primary mb-6">Existing Related Searches</h2>
         
+        <BulkActionToolbar
+          totalCount={searches.length}
+          selectedCount={selectedIds.size}
+          isAllSelected={searches.length > 0 && selectedIds.size === searches.length}
+          onSelectAll={handleSelectAll}
+          onExportAll={handleExportAll}
+          onExportSelected={handleExportSelected}
+          onCopy={handleCopy}
+          onActivate={handleBulkActivate}
+          onDeactivate={handleBulkDeactivate}
+          onDelete={handleBulkDelete}
+        />
+
         <div className="space-y-3">
           {searches.map((search) => (
             <div key={search.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
-              <div>
-                <p className="font-medium text-foreground">{search.search_text}</p>
-                <p className="text-sm text-muted-foreground">
-                  Page: {search.web_result_page} | Pos: {search.position} | Order: {search.display_order}
-                </p>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  checked={selectedIds.has(search.id)}
+                  onCheckedChange={() => toggleSelection(search.id)}
+                />
+                <div>
+                  <p className="font-medium text-foreground">{search.search_text}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Page: {search.web_result_page} | Pos: {search.position} | Order: {search.display_order}
+                    <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${search.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {search.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </p>
+                </div>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => handleViewBreakdown(search)}>
@@ -204,7 +292,6 @@ const RelatedSearchesTab = () => {
         </div>
       </div>
 
-      {/* Click Breakdown Dialog */}
       <Dialog open={showBreakdown} onOpenChange={setShowBreakdown}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
           <DialogHeader>
