@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Trash2, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import BulkActionToolbar from "./BulkActionToolbar";
+import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 
 interface WebResult {
   id: string;
@@ -46,6 +49,7 @@ interface ClickDetail {
 
 const WebResultsTab = () => {
   const [results, setResults] = useState<WebResult[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [relatedSearches, setRelatedSearches] = useState<RelatedSearch[]>([]);
   const [prelandings, setPrelandings] = useState<Prelanding[]>([]);
   const [title, setTitle] = useState("");
@@ -80,6 +84,68 @@ const WebResultsTab = () => {
   const fetchPrelandings = async () => {
     const { data } = await supabase.from('prelandings').select('id, key, headline').eq('is_active', true);
     if (data) setPrelandings(data);
+  };
+
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(results.map(r => r.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleExportAll = () => {
+    const csv = convertToCSV(results, ['id', 'title', 'description', 'original_link', 'web_result_page', 'position', 'is_active', 'is_sponsored']);
+    downloadCSV(csv, 'web_results_all.csv');
+    toast({ title: "Success", description: "Exported all web results to CSV" });
+  };
+
+  const handleExportSelected = () => {
+    const selected = results.filter(r => selectedIds.has(r.id));
+    const csv = convertToCSV(selected, ['id', 'title', 'description', 'original_link', 'web_result_page', 'position', 'is_active', 'is_sponsored']);
+    downloadCSV(csv, 'web_results_selected.csv');
+    toast({ title: "Success", description: `Exported ${selected.length} web results to CSV` });
+  };
+
+  const handleCopy = () => {
+    const selected = results.filter(r => selectedIds.has(r.id));
+    const text = selected.map(r => `${r.title} - ${r.original_link}`).join('\n');
+    navigator.clipboard.writeText(text);
+    toast({ title: "Success", description: "Copied to clipboard" });
+  };
+
+  const handleBulkActivate = async () => {
+    const ids = Array.from(selectedIds);
+    await supabase.from('web_results').update({ is_active: true }).in('id', ids);
+    toast({ title: "Success", description: `Activated ${ids.length} web results` });
+    fetchResults();
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDeactivate = async () => {
+    const ids = Array.from(selectedIds);
+    await supabase.from('web_results').update({ is_active: false }).in('id', ids);
+    toast({ title: "Success", description: `Deactivated ${ids.length} web results` });
+    fetchResults();
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await supabase.from('web_results').delete().in('id', ids);
+    toast({ title: "Success", description: `Deleted ${ids.length} web results` });
+    fetchResults();
+    setSelectedIds(new Set());
   };
 
   const handleSave = async () => {
@@ -127,10 +193,8 @@ const WebResultsTab = () => {
     setDescription(result.description || "");
     setOriginalLink(result.original_link);
     setLogoUrl(result.logo_url || "");
-    // Find the related search that matches this web_result_page
     const matchingRS = relatedSearches.find(rs => rs.web_result_page === result.web_result_page);
     setSelectedRelatedSearch(matchingRS?.id || "");
-    // Find the prelanding that matches this prelanding_key
     const matchingPL = prelandings.find(p => p.key === result.prelanding_key);
     setSelectedPrelanding(matchingPL?.id || "");
     setSponsored(result.is_sponsored || false);
@@ -264,10 +328,27 @@ const WebResultsTab = () => {
       <div className="bg-card p-6 rounded-lg border border-border">
         <h2 className="text-xl font-bold text-primary mb-6">Existing Web Results</h2>
         
+        <BulkActionToolbar
+          totalCount={results.length}
+          selectedCount={selectedIds.size}
+          isAllSelected={results.length > 0 && selectedIds.size === results.length}
+          onSelectAll={handleSelectAll}
+          onExportAll={handleExportAll}
+          onExportSelected={handleExportSelected}
+          onCopy={handleCopy}
+          onActivate={handleBulkActivate}
+          onDeactivate={handleBulkDeactivate}
+          onDelete={handleBulkDelete}
+        />
+
         <div className="space-y-3">
           {results.map((result) => (
             <div key={result.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
               <div className="flex items-center gap-4">
+                <Checkbox
+                  checked={selectedIds.has(result.id)}
+                  onCheckedChange={() => toggleSelection(result.id)}
+                />
                 {result.logo_url ? (
                   <img src={result.logo_url} alt="" className="w-10 h-10 rounded object-cover" />
                 ) : (
@@ -281,6 +362,9 @@ const WebResultsTab = () => {
                     {getRelatedSearchName(result.web_result_page)} 
                     {result.is_sponsored && <span className="text-yellow-500"> • Sponsored</span>}
                     {result.prelanding_key && <span className="text-blue-500"> • Has Prelanding</span>}
+                    <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${result.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {result.is_active ? 'Active' : 'Inactive'}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -300,7 +384,6 @@ const WebResultsTab = () => {
         </div>
       </div>
 
-      {/* Click Breakdown Dialog */}
       <Dialog open={showBreakdown} onOpenChange={setShowBreakdown}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
           <DialogHeader>
