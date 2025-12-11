@@ -26,16 +26,14 @@ interface Blog {
   created_at: string;
 }
 
-interface RelatedSearch {
-  id: string;
-  search_text: string;
-  title: string | null;
+interface GeneratedSearch {
+  text: string;
+  selected: boolean;
 }
 
 const BlogsTab = () => {
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [relatedSearches, setRelatedSearches] = useState<RelatedSearch[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState<Blog | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -47,21 +45,15 @@ const BlogsTab = () => {
   const [content, setContent] = useState("");
   const [featuredImage, setFeaturedImage] = useState("");
   const [status, setStatus] = useState("draft");
-  const [relatedSearchId, setRelatedSearchId] = useState<string>("");
+  const [generatedSearches, setGeneratedSearches] = useState<GeneratedSearch[]>([]);
 
   useEffect(() => {
     fetchBlogs();
-    fetchRelatedSearches();
   }, []);
 
   const fetchBlogs = async () => {
     const { data } = await supabase.from("blogs").select("*").order("created_at", { ascending: false });
     setBlogs(data || []);
-  };
-
-  const fetchRelatedSearches = async () => {
-    const { data } = await supabase.from("related_searches").select("id, search_text, title").eq("is_active", true);
-    setRelatedSearches(data || []);
   };
 
   const generateSlug = (text: string) => text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
@@ -147,6 +139,9 @@ const BlogsTab = () => {
       }
       if (response.data?.content) {
         setContent(response.data.content);
+        if (response.data?.relatedSearches?.length) {
+          setGeneratedSearches(response.data.relatedSearches.map((text: string) => ({ text, selected: false })));
+        }
         toast.success("Content generated!");
       } else if (response.data?.error) {
         toast.error(response.data.error);
@@ -158,6 +153,20 @@ const BlogsTab = () => {
     }
   };
 
+  const toggleSearchSelection = (index: number) => {
+    const selectedCount = generatedSearches.filter(s => s.selected).length;
+    const search = generatedSearches[index];
+    
+    if (!search.selected && selectedCount >= 4) {
+      toast.error("Maximum 4 related searches can be selected");
+      return;
+    }
+    
+    setGeneratedSearches(prev => prev.map((s, i) => 
+      i === index ? { ...s, selected: !s.selected } : s
+    ));
+  };
+
   const resetForm = () => {
     setTitle("");
     setSlug("");
@@ -166,7 +175,7 @@ const BlogsTab = () => {
     setContent("");
     setFeaturedImage("");
     setStatus("draft");
-    setRelatedSearchId("");
+    setGeneratedSearches([]);
     setEditingBlog(null);
   };
 
@@ -184,8 +193,10 @@ const BlogsTab = () => {
       content: content || null,
       featured_image: featuredImage || null,
       status,
-      related_search_id: relatedSearchId && relatedSearchId !== "none" ? relatedSearchId : null,
+      related_search_id: null,
     };
+
+    let blogId = editingBlog?.id;
 
     if (editingBlog) {
       const { error } = await supabase.from("blogs").update(blogData).eq("id", editingBlog.id);
@@ -193,22 +204,45 @@ const BlogsTab = () => {
         toast.error("Failed to update blog");
         return;
       }
-      toast.success("Blog updated");
     } else {
-      const { error } = await supabase.from("blogs").insert([blogData]);
+      const { data, error } = await supabase.from("blogs").insert([blogData]).select().single();
       if (error) {
         toast.error("Failed to create blog");
         return;
       }
-      toast.success("Blog created");
+      blogId = data.id;
     }
 
+    // Save selected related searches
+    const selectedSearches = generatedSearches.filter(s => s.selected);
+    if (selectedSearches.length > 0 && blogId) {
+      // First, remove any existing related searches for this blog
+      await supabase.from("related_searches").delete().eq("blog_id", blogId);
+      
+      // Insert new selected searches
+      const searchesToInsert = selectedSearches.map((s, idx) => ({
+        search_text: s.text,
+        title: s.text,
+        blog_id: blogId,
+        web_result_page: idx + 1,
+        display_order: idx,
+        position: idx + 1,
+        is_active: true,
+      }));
+      
+      const { error: searchError } = await supabase.from("related_searches").insert(searchesToInsert);
+      if (searchError) {
+        console.error("Failed to save related searches:", searchError);
+      }
+    }
+
+    toast.success(editingBlog ? "Blog updated" : "Blog created");
     setIsDialogOpen(false);
     resetForm();
     fetchBlogs();
   };
 
-  const handleEdit = (blog: Blog) => {
+  const handleEdit = async (blog: Blog) => {
     setEditingBlog(blog);
     setTitle(blog.title);
     setSlug(blog.slug);
@@ -217,11 +251,27 @@ const BlogsTab = () => {
     setContent(blog.content || "");
     setFeaturedImage(blog.featured_image || "");
     setStatus(blog.status || "draft");
-    setRelatedSearchId(blog.related_search_id || "");
+    
+    // Load existing related searches for this blog
+    const { data: searches } = await supabase
+      .from("related_searches")
+      .select("search_text")
+      .eq("blog_id", blog.id)
+      .order("display_order");
+    
+    if (searches?.length) {
+      setGeneratedSearches(searches.map(s => ({ text: s.search_text, selected: true })));
+    } else {
+      setGeneratedSearches([]);
+    }
+    
     setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
+    // First delete related searches
+    await supabase.from("related_searches").delete().eq("blog_id", id);
+    
     const { error } = await supabase.from("blogs").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete blog");
@@ -230,6 +280,8 @@ const BlogsTab = () => {
     toast.success("Blog deleted");
     fetchBlogs();
   };
+
+  const selectedSearchCount = generatedSearches.filter(s => s.selected).length;
 
   return (
     <Card>
@@ -241,7 +293,7 @@ const BlogsTab = () => {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingBlog ? "Edit Blog" : "Add New Blog"}</DialogTitle>
+              <DialogTitle>{editingBlog ? "Edit Blog" : "Create New Blog"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -264,14 +316,43 @@ const BlogsTab = () => {
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <Label>Content</Label>
+                  <Label>Content *</Label>
                   <Button type="button" variant="outline" size="sm" onClick={generateContent} disabled={isGeneratingContent || !title}>
                     {isGeneratingContent ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
-                    Generate
+                    Generate Content
                   </Button>
                 </div>
-                <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Blog content..." rows={6} />
+                <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Blog content..." rows={4} />
               </div>
+              
+              {/* Related Searches Selection */}
+              {generatedSearches.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Select Related Searches (max 4)</Label>
+                  <p className="text-xs text-muted-foreground">Selected searches will be linked to this blog and redirect to /wr=1, /wr=2, etc.</p>
+                  <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+                    {generatedSearches.map((search, idx) => (
+                      <div 
+                        key={idx}
+                        className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${
+                          search.selected ? 'bg-primary/20 border border-primary' : 'hover:bg-muted'
+                        }`}
+                        onClick={() => toggleSearchSelection(idx)}
+                      >
+                        <Checkbox checked={search.selected} />
+                        <span className="flex-1">{search.text}</span>
+                        {search.selected && (
+                          <span className="text-xs text-primary font-medium">
+                            → /wr={generatedSearches.filter((s, i) => s.selected && i <= idx).length}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{selectedSearchCount}/4 selected</p>
+                </div>
+              )}
+              
               <div>
                 <Label>Featured Image URL</Label>
                 <div className="flex gap-2">
@@ -281,29 +362,15 @@ const BlogsTab = () => {
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Status</Label>
-                  <Select value={status} onValueChange={setStatus}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="published">Published</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Related Search</Label>
-                  <Select value={relatedSearchId || "none"} onValueChange={setRelatedSearchId}>
-                    <SelectTrigger><SelectValue placeholder="Select search" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {relatedSearches.map((rs) => (
-                        <SelectItem key={rs.id} value={rs.id}>{rs.title || rs.search_text}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label>Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="published">Published</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <Button onClick={handleSave} className="w-full">{editingBlog ? "Update Blog" : "Create Blog"}</Button>
             </div>

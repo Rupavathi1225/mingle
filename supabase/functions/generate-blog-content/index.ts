@@ -42,21 +42,22 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a professional blog content writer. Generate engaging, well-structured blog content based on the title provided. 
-            
+            content: `You are a professional blog content writer. Generate content and related searches based on the title.
+
+CRITICAL FORMAT - Return ONLY valid JSON, no markdown, no code blocks:
+{
+  "content": "Short 50-word blog content here. Simple, tight, direct.",
+  "relatedSearches": ["search phrase 1", "search phrase 2", "search phrase 3", "search phrase 4", "search phrase 5", "search phrase 6"]
+}
+
 Guidelines:
-- Write in a conversational yet professional tone
-- Include an engaging introduction
-- Use clear headings and subheadings (use markdown ## for headings)
-- Include practical tips, insights, or information
-- Write 400-600 words
-- End with a compelling conclusion
-- Do NOT include the title in the content (it will be displayed separately)
-- Make the content informative and valuable to readers`
+- content: Exactly 50 words, simple, tight, direct writing
+- relatedSearches: 4-6 search phrases, each EXACTLY 5 words, related to the blog topic
+- Return ONLY the JSON object, nothing else`
           },
           {
             role: "user",
-            content: `Write a blog post with the title: "${title}"`
+            content: `Generate for blog title: "${title}"`
           }
         ],
       }),
@@ -86,9 +87,9 @@ Guidelines:
     }
 
     const data = await response.json();
-    const generatedContent = data.choices?.[0]?.message?.content;
+    let generatedText = data.choices?.[0]?.message?.content;
 
-    if (!generatedContent) {
+    if (!generatedText) {
       console.error("No content in response:", data);
       return new Response(JSON.stringify({ error: "No content generated" }), {
         status: 500,
@@ -96,9 +97,35 @@ Guidelines:
       });
     }
 
+    // Clean up the response - remove markdown code blocks if present
+    generatedText = generatedText.trim();
+    if (generatedText.startsWith("```json")) {
+      generatedText = generatedText.slice(7);
+    } else if (generatedText.startsWith("```")) {
+      generatedText = generatedText.slice(3);
+    }
+    if (generatedText.endsWith("```")) {
+      generatedText = generatedText.slice(0, -3);
+    }
+    generatedText = generatedText.trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(generatedText);
+    } catch (e) {
+      console.error("Failed to parse AI response:", generatedText);
+      return new Response(JSON.stringify({ error: "Failed to parse generated content" }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     console.log("Content generated successfully");
 
-    return new Response(JSON.stringify({ content: generatedContent }), {
+    return new Response(JSON.stringify({ 
+      content: parsed.content || "", 
+      relatedSearches: parsed.relatedSearches || [] 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
