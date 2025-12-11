@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, ExternalLink, Loader2, Sparkles } from "lucide-react";
+import { Plus, Edit, Trash2, ExternalLink, Loader2, Sparkles, Copy } from "lucide-react";
 import BulkActionToolbar from "./BulkActionToolbar";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 
@@ -334,6 +334,13 @@ const BlogsTab = () => {
                 </div>
               </div>
               <div className="flex gap-2">
+                <Button variant="ghost" size="icon" onClick={() => {
+                  const fullUrl = `${window.location.origin}/blog/${blog.slug}`;
+                  navigator.clipboard.writeText(fullUrl);
+                  toast.success("Link copied!");
+                }}>
+                  <Copy className="w-4 h-4" />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => window.open(`/blog/${blog.slug}`, '_blank')}>
                   <ExternalLink className="w-4 h-4" />
                 </Button>
