@@ -1,4 +1,4 @@
-export const convertToCSV = <T extends Record<string, unknown>>(data: T[], columns: (keyof T)[]): string => {
+export const convertToCSV = <T extends object>(data: T[], columns: (keyof T)[]): string => {
   if (data.length === 0) return "";
   
   const headers = columns.map(col => String(col)).join(",");
