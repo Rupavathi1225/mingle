@@ -20,7 +20,7 @@ const WebResult = () => {
   const sessionId = useSession();
   const [sponsoredResults, setSponsoredResults] = useState<WebResult[]>([]);
   const [normalResults, setNormalResults] = useState<WebResult[]>([]);
-  const pageNumber = parseInt(wr || '1') || 1;
+  const pageNumber = wr?.includes('=') ? parseInt(wr.split('=')[1]) || 1 : parseInt(wr || '1') || 1;
 
   useEffect(() => {
     fetchResults(pageNumber);

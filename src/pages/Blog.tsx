@@ -72,7 +72,7 @@ const Blog = () => {
   };
 
   const handleRelatedSearchClick = (search: RelatedSearch) => {
-    navigate(`/webresult/wr-${search.web_result_page}`);
+    navigate(`/webresult/wr=${search.web_result_page}`);
   };
 
   if (isLoading) {
