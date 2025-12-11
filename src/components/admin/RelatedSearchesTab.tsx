@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Trash2, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,6 +20,13 @@ interface RelatedSearch {
   position: number;
   display_order: number;
   is_active: boolean;
+  blog_id: string | null;
+}
+
+interface Blog {
+  id: string;
+  title: string;
+  slug: string;
 }
 
 interface ClickDetail {
@@ -31,6 +39,7 @@ interface ClickDetail {
 
 const RelatedSearchesTab = () => {
   const [searches, setSearches] = useState<RelatedSearch[]>([]);
+  const [blogs, setBlogs] = useState<Blog[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchText, setSearchText] = useState("");
   const [title, setTitle] = useState("");
@@ -38,6 +47,7 @@ const RelatedSearchesTab = () => {
   const [position, setPosition] = useState(1);
   const [displayOrder, setDisplayOrder] = useState(0);
   const [isActive, setIsActive] = useState(true);
+  const [blogId, setBlogId] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [clickDetails, setClickDetails] = useState<ClickDetail[]>([]);
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -45,11 +55,23 @@ const RelatedSearchesTab = () => {
 
   useEffect(() => {
     fetchSearches();
+    fetchBlogs();
   }, []);
 
   const fetchSearches = async () => {
     const { data } = await supabase.from('related_searches').select('*').order('display_order');
-    if (data) setSearches(data);
+    if (data) setSearches(data as RelatedSearch[]);
+  };
+
+  const fetchBlogs = async () => {
+    const { data } = await supabase.from('blogs').select('id, title, slug').order('title');
+    if (data) setBlogs(data);
+  };
+
+  const getBlogName = (blogId: string | null) => {
+    if (!blogId) return "No Blog";
+    const blog = blogs.find(b => b.id === blogId);
+    return blog ? blog.title : "Unknown Blog";
   };
 
   const toggleSelection = (id: string) => {
@@ -71,14 +93,14 @@ const RelatedSearchesTab = () => {
   };
 
   const handleExportAll = () => {
-    const csv = convertToCSV(searches, ['id', 'search_text', 'title', 'web_result_page', 'position', 'display_order', 'is_active']);
+    const csv = convertToCSV(searches, ['id', 'search_text', 'title', 'web_result_page', 'position', 'display_order', 'is_active', 'blog_id']);
     downloadCSV(csv, 'related_searches_all.csv');
     toast({ title: "Success", description: "Exported all searches to CSV" });
   };
 
   const handleExportSelected = () => {
     const selected = searches.filter(s => selectedIds.has(s.id));
-    const csv = convertToCSV(selected, ['id', 'search_text', 'title', 'web_result_page', 'position', 'display_order', 'is_active']);
+    const csv = convertToCSV(selected, ['id', 'search_text', 'title', 'web_result_page', 'position', 'display_order', 'is_active', 'blog_id']);
     downloadCSV(csv, 'related_searches_selected.csv');
     toast({ title: "Success", description: `Exported ${selected.length} searches to CSV` });
   };
@@ -126,7 +148,8 @@ const RelatedSearchesTab = () => {
       web_result_page: webResultPage,
       position,
       display_order: displayOrder,
-      is_active: isActive
+      is_active: isActive,
+      blog_id: blogId && blogId !== "none" ? blogId : null
     };
 
     if (editingId) {
@@ -149,6 +172,7 @@ const RelatedSearchesTab = () => {
     setPosition(search.position);
     setDisplayOrder(search.display_order);
     setIsActive(search.is_active);
+    setBlogId(search.blog_id || "");
   };
 
   const handleDelete = async (id: string) => {
@@ -165,6 +189,7 @@ const RelatedSearchesTab = () => {
     setPosition(1);
     setDisplayOrder(0);
     setIsActive(true);
+    setBlogId("");
   };
 
   const handleViewBreakdown = async (search: RelatedSearch) => {
@@ -188,38 +213,64 @@ const RelatedSearchesTab = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
+            <label className="text-sm text-muted-foreground mb-2 block">Blog *</label>
+            <Select value={blogId || "none"} onValueChange={setBlogId}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue placeholder="Select blog" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No Blog (Global)</SelectItem>
+                {blogs.map((blog) => (
+                  <SelectItem key={blog.id} value={blog.id}>{blog.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground mb-2 block">Title (visible to users)</label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Best Social Media Platforms 2024"
+              className="bg-secondary border-border"
+            />
+          </div>
+          <div>
             <label className="text-sm text-muted-foreground mb-2 block">Search Text</label>
             <Input
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Internal search text"
               className="bg-secondary border-border"
             />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Title</label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="bg-secondary border-border"
-            />
+            <label className="text-sm text-muted-foreground mb-2 block">Web Result Page (1-4)</label>
+            <Select value={webResultPage.toString()} onValueChange={(v) => setWebResultPage(parseInt(v))}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Page 1</SelectItem>
+                <SelectItem value="2">Page 2</SelectItem>
+                <SelectItem value="3">Page 3</SelectItem>
+                <SelectItem value="4">Page 4</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Web Result Page (wr=)</label>
-            <Input
-              type="number"
-              value={webResultPage}
-              onChange={(e) => setWebResultPage(parseInt(e.target.value) || 1)}
-              className="bg-secondary border-border"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Position</label>
-            <Input
-              type="number"
-              value={position}
-              onChange={(e) => setPosition(parseInt(e.target.value) || 1)}
-              className="bg-secondary border-border"
-            />
+            <label className="text-sm text-muted-foreground mb-2 block">Position (1-4)</label>
+            <Select value={position.toString()} onValueChange={(v) => setPosition(parseInt(v))}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Position 1</SelectItem>
+                <SelectItem value="2">Position 2</SelectItem>
+                <SelectItem value="3">Position 3</SelectItem>
+                <SelectItem value="4">Position 4</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="text-sm text-muted-foreground mb-2 block">Display Order</label>
@@ -227,6 +278,7 @@ const RelatedSearchesTab = () => {
               type="number"
               value={displayOrder}
               onChange={(e) => setDisplayOrder(parseInt(e.target.value) || 0)}
+              placeholder="Lower numbers appear first"
               className="bg-secondary border-border"
             />
           </div>
@@ -267,12 +319,15 @@ const RelatedSearchesTab = () => {
                   onCheckedChange={() => toggleSelection(search.id)}
                 />
                 <div>
-                  <p className="font-medium text-foreground">{search.search_text}</p>
+                  <p className="font-medium text-foreground">{search.title || search.search_text}</p>
                   <p className="text-sm text-muted-foreground">
-                    Page: {search.web_result_page} | Pos: {search.position} | Order: {search.display_order}
+                    Page: wr-{search.web_result_page} | Pos: {search.position} | Order: {search.display_order}
                     <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${search.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                       {search.is_active ? 'Active' : 'Inactive'}
                     </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Blog: <span className="text-primary">{getBlogName(search.blog_id)}</span>
                   </p>
                 </div>
               </div>

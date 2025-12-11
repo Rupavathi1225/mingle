@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, User, Tag } from "lucide-react";
+import { ArrowLeft, Calendar, User, Tag, Search } from "lucide-react";
 import { format } from "date-fns";
 
 interface Blog {
@@ -29,7 +29,7 @@ const Blog = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [blog, setBlog] = useState<Blog | null>(null);
-  const [relatedSearch, setRelatedSearch] = useState<RelatedSearch | null>(null);
+  const [relatedSearches, setRelatedSearches] = useState<RelatedSearch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -56,26 +56,23 @@ const Blog = () => {
 
     setBlog(data);
 
-    // Fetch related search if exists
-    if (data.related_search_id) {
-      const { data: searchData } = await supabase
-        .from("related_searches")
-        .select("*")
-        .eq("id", data.related_search_id)
-        .maybeSingle();
-      
-      if (searchData) {
-        setRelatedSearch(searchData);
-      }
+    // Fetch related searches that belong to this blog
+    const { data: searchesData } = await supabase
+      .from("related_searches")
+      .select("*")
+      .eq("blog_id", data.id)
+      .eq("is_active", true)
+      .order("display_order");
+    
+    if (searchesData) {
+      setRelatedSearches(searchesData);
     }
 
     setIsLoading(false);
   };
 
-  const handleRelatedSearchClick = () => {
-    if (relatedSearch) {
-      navigate(`/web-results?page=${relatedSearch.web_result_page}`);
-    }
+  const handleRelatedSearchClick = (search: RelatedSearch) => {
+    navigate(`/webresult/wr-${search.web_result_page}`);
   };
 
   if (isLoading) {
@@ -158,19 +155,25 @@ const Blog = () => {
           </p>
         </div>
 
-        {/* Related Search Button */}
-        {relatedSearch && (
+        {/* Related Searches Section */}
+        {relatedSearches.length > 0 && (
           <div className="border-t border-border pt-8 mt-8">
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              Related Search
+            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              Related Searches
             </h3>
-            <Button
-              onClick={handleRelatedSearchClick}
-              variant="outline"
-              className="w-full md:w-auto"
-            >
-              {relatedSearch.title || relatedSearch.search_text}
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              {relatedSearches.map((search) => (
+                <Button
+                  key={search.id}
+                  onClick={() => handleRelatedSearchClick(search)}
+                  variant="outline"
+                  className="hover:bg-primary hover:text-primary-foreground transition-colors"
+                >
+                  {search.title || search.search_text}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
       </article>
