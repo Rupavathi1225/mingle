@@ -39,6 +39,7 @@ const BlogsTab = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState<Blog | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isGeneratingContent, setIsGeneratingContent] = useState(false);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [author, setAuthor] = useState("");
@@ -129,6 +130,31 @@ const BlogsTab = () => {
       toast.error("Failed to generate image");
     } finally {
       setIsGeneratingImage(false);
+    }
+  };
+
+  const generateContent = async () => {
+    if (!title) {
+      toast.error("Please enter a title first");
+      return;
+    }
+    setIsGeneratingContent(true);
+    try {
+      const response = await supabase.functions.invoke("generate-blog-content", { body: { title, slug } });
+      if (response.error) {
+        toast.error(response.error.message || "Failed to generate content");
+        return;
+      }
+      if (response.data?.content) {
+        setContent(response.data.content);
+        toast.success("Content generated!");
+      } else if (response.data?.error) {
+        toast.error(response.data.error);
+      }
+    } catch {
+      toast.error("Failed to generate content");
+    } finally {
+      setIsGeneratingContent(false);
     }
   };
 
@@ -237,7 +263,13 @@ const BlogsTab = () => {
                 </div>
               </div>
               <div>
-                <Label>Content</Label>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>Content</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={generateContent} disabled={isGeneratingContent || !title}>
+                    {isGeneratingContent ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                    Generate
+                  </Button>
+                </div>
                 <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Blog content..." rows={6} />
               </div>
               <div>
