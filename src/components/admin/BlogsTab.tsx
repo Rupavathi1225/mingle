@@ -311,7 +311,18 @@ const BlogsTab = () => {
                 </div>
                 <div>
                   <Label>Category</Label>
-                  <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Category" />
+                  <Select value={category || "none"} onValueChange={(val) => setCategory(val === "none" ? "" : val)}>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      <SelectItem value="none">Select category</SelectItem>
+                      <SelectItem value="Finance">Finance</SelectItem>
+                      <SelectItem value="Technology">Technology</SelectItem>
+                      <SelectItem value="Lifestyle">Lifestyle</SelectItem>
+                      <SelectItem value="Business">Business</SelectItem>
+                      <SelectItem value="Health">Health</SelectItem>
+                      <SelectItem value="Education">Education</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div>
