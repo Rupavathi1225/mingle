@@ -144,7 +144,19 @@ const WebResultsTab = () => {
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedIds);
-    await supabase.from('web_results').delete().in('id', ids);
+    
+    // Delete related records first to avoid foreign key constraint errors
+    await supabase.from('click_tracking').delete().in('link_id', ids);
+    await supabase.from('email_captures').delete().in('web_result_id', ids);
+    await supabase.from('link_clicks').delete().in('web_result_id', ids);
+    
+    const { error } = await supabase.from('web_results').delete().in('id', ids);
+    
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete web results", variant: "destructive" });
+      return;
+    }
+    
     toast({ title: "Success", description: `Deleted ${ids.length} web results` });
     fetchResults();
     setSelectedIds(new Set());
@@ -290,7 +302,18 @@ const WebResultsTab = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('web_results').delete().eq('id', id);
+    // Delete related records first to avoid foreign key constraint errors
+    await supabase.from('click_tracking').delete().eq('link_id', id);
+    await supabase.from('email_captures').delete().eq('web_result_id', id);
+    await supabase.from('link_clicks').delete().eq('web_result_id', id);
+    
+    const { error } = await supabase.from('web_results').delete().eq('id', id);
+    
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete web result", variant: "destructive" });
+      return;
+    }
+    
     toast({ title: "Success", description: "Web result deleted!" });
     fetchResults();
   };

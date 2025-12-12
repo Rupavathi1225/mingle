@@ -130,7 +130,17 @@ const RelatedSearchesTab = () => {
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedIds);
-    await supabase.from('related_searches').delete().in('id', ids);
+    
+    // Delete related records first to avoid foreign key constraint errors
+    await supabase.from('click_tracking').delete().in('related_search_id', ids);
+    
+    const { error } = await supabase.from('related_searches').delete().in('id', ids);
+    
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete searches", variant: "destructive" });
+      return;
+    }
+    
     toast({ title: "Success", description: `Deleted ${ids.length} searches` });
     fetchSearches();
     setSelectedIds(new Set());
@@ -176,7 +186,16 @@ const RelatedSearchesTab = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('related_searches').delete().eq('id', id);
+    // Delete related records first to avoid foreign key constraint errors
+    await supabase.from('click_tracking').delete().eq('related_search_id', id);
+    
+    const { error } = await supabase.from('related_searches').delete().eq('id', id);
+    
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete search", variant: "destructive" });
+      return;
+    }
+    
     toast({ title: "Success", description: "Search deleted!" });
     fetchSearches();
   };
