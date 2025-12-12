@@ -121,9 +121,15 @@ const WebResultsTab = () => {
 
   const handleCopy = () => {
     const selected = results.filter(r => selectedIds.has(r.id));
-    const text = selected.map(r => `${r.title} - ${r.original_link}`).join('\n');
-    navigator.clipboard.writeText(text);
-    toast({ title: "Success", description: "Copied to clipboard" });
+    const links = selected.map(r => r.original_link);
+    navigator.clipboard.writeText(links.join('\n'));
+    
+    // Open each link in a new tab
+    selected.forEach(r => {
+      window.open(r.original_link, '_blank');
+    });
+    
+    toast({ title: "Success", description: `Copied ${links.length} links and opened in new tabs` });
   };
 
   const handleBulkActivate = async () => {
