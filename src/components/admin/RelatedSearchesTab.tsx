@@ -108,12 +108,12 @@ const RelatedSearchesTab = () => {
   const handleCopy = () => {
     const selected = searches.filter(s => selectedIds.has(s.id));
     const baseUrl = window.location.origin;
-    const links = selected.map(s => `${baseUrl}/web-results/${s.web_result_page}`);
+    const links = selected.map(s => `${baseUrl}/webresult/${s.web_result_page}`);
     navigator.clipboard.writeText(links.join('\n'));
     
     // Open each link in a new tab
     selected.forEach(s => {
-      window.open(`${baseUrl}/web-results/${s.web_result_page}`, '_blank');
+      window.open(`${baseUrl}/webresult/${s.web_result_page}`, '_blank');
     });
     
     toast({ title: "Success", description: `Copied ${links.length} links and opened in new tabs` });
