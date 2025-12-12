@@ -33,11 +33,6 @@ interface RelatedSearch {
   web_result_page: number;
 }
 
-interface Prelanding {
-  id: string;
-  key: string;
-  headline: string;
-}
 
 interface ClickDetail {
   id: string;
@@ -59,9 +54,8 @@ const WebResultsTab = () => {
   const [results, setResults] = useState<WebResult[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [relatedSearches, setRelatedSearches] = useState<RelatedSearch[]>([]);
-  const [prelandings, setPrelandings] = useState<Prelanding[]>([]);
   const [selectedRelatedSearch, setSelectedRelatedSearch] = useState("");
-  const [selectedPrelanding, setSelectedPrelanding] = useState("");
+  const [selectedPageFilter, setSelectedPageFilter] = useState<number | "all">("all");
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [clickDetails, setClickDetails] = useState<ClickDetail[]>([]);
@@ -82,7 +76,6 @@ const WebResultsTab = () => {
   useEffect(() => {
     fetchResults();
     fetchRelatedSearches();
-    fetchPrelandings();
   }, []);
 
   const fetchResults = async () => {
@@ -93,11 +86,6 @@ const WebResultsTab = () => {
   const fetchRelatedSearches = async () => {
     const { data } = await supabase.from('related_searches').select('id, search_text, web_result_page').eq('is_active', true).order('web_result_page');
     if (data) setRelatedSearches(data);
-  };
-
-  const fetchPrelandings = async () => {
-    const { data } = await supabase.from('prelandings').select('id, key, headline').eq('is_active', true);
-    if (data) setPrelandings(data);
   };
 
   const toggleSelection = (id: string) => {
@@ -232,16 +220,11 @@ const WebResultsTab = () => {
       return;
     }
 
-    const selectedPrelandingData = selectedPrelanding && selectedPrelanding !== "none" 
-      ? prelandings.find(p => p.id === selectedPrelanding) 
-      : null;
-
     const resultsToInsert = selectedResults.map((r, idx) => ({
       title: r.title,
       description: r.description,
       original_link: r.link,
       web_result_page: relatedSearch.web_result_page,
-      prelanding_key: selectedPrelandingData?.key || null,
       is_sponsored: r.isSponsored,
       is_active: isActive,
       position: idx
@@ -271,17 +254,12 @@ const WebResultsTab = () => {
       return;
     }
 
-    const selectedPrelandingData = selectedPrelanding && selectedPrelanding !== "none" 
-      ? prelandings.find(p => p.id === selectedPrelanding) 
-      : null;
-
     const payload = {
       title: manualTitle,
       description: manualDescription || null,
       original_link: manualLink,
       logo_url: manualLogoUrl || null,
       web_result_page: relatedSearch.web_result_page,
-      prelanding_key: selectedPrelandingData?.key || null,
       is_sponsored: manualSponsored,
       is_active: isActive
     };
@@ -306,8 +284,6 @@ const WebResultsTab = () => {
     setManualLogoUrl(result.logo_url || "");
     const matchingRS = relatedSearches.find(rs => rs.web_result_page === result.web_result_page);
     setSelectedRelatedSearch(matchingRS?.id || "");
-    const matchingPL = prelandings.find(p => p.key === result.prelanding_key);
-    setSelectedPrelanding(matchingPL?.id || "");
     setManualSponsored(result.is_sponsored || false);
     setIsActive(result.is_active);
     setGeneratedResults([]);
@@ -326,10 +302,10 @@ const WebResultsTab = () => {
     setManualLink("");
     setManualLogoUrl("");
     setSelectedRelatedSearch("");
-    setSelectedPrelanding("");
     setManualSponsored(false);
     setIsActive(true);
     setGeneratedResults([]);
+  };
   };
 
   const handleViewBreakdown = async (result: WebResult) => {
@@ -350,6 +326,10 @@ const WebResultsTab = () => {
   };
 
   const selectedGeneratedCount = generatedResults.filter(r => r.selected).length;
+
+  const filteredResults = selectedPageFilter === "all" 
+    ? results 
+    : results.filter(r => r.web_result_page === selectedPageFilter);
 
   return (
     <div className="space-y-6">
@@ -429,27 +409,9 @@ const WebResultsTab = () => {
             <p className="text-xs text-muted-foreground">{selectedGeneratedCount}/4 selected</p>
             
             {/* Common options for generated results */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
-                <label className="text-sm text-muted-foreground mb-2 block">Prelanding (optional)</label>
-                <Select value={selectedPrelanding} onValueChange={setSelectedPrelanding}>
-                  <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="No prelanding (direct link)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No prelanding (direct link)</SelectItem>
-                    {prelandings.map((pl) => (
-                      <SelectItem key={pl.id} value={pl.id}>
-                        {pl.headline}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={isActive} onCheckedChange={setIsActive} />
-                <label className="text-sm text-muted-foreground">Active</label>
-              </div>
+            <div className="flex items-center gap-2 mt-4">
+              <Switch checked={isActive} onCheckedChange={setIsActive} />
+              <label className="text-sm text-muted-foreground">Active</label>
             </div>
             
             <Button onClick={handleSaveGeneratedResults} className="mt-4">
@@ -486,30 +448,6 @@ const WebResultsTab = () => {
                 className="bg-secondary border-border"
               />
             </div>
-            <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Logo URL</label>
-              <Input
-                value={manualLogoUrl}
-                onChange={(e) => setManualLogoUrl(e.target.value)}
-                className="bg-secondary border-border"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Prelanding (optional)</label>
-              <Select value={selectedPrelanding} onValueChange={setSelectedPrelanding}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="No prelanding (direct link)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No prelanding (direct link)</SelectItem>
-                  {prelandings.map((pl) => (
-                    <SelectItem key={pl.id} value={pl.id}>
-                      {pl.headline}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <Switch checked={manualSponsored} onCheckedChange={setManualSponsored} />
@@ -532,11 +470,32 @@ const WebResultsTab = () => {
       <div className="bg-card p-6 rounded-lg border border-border">
         <h2 className="text-xl font-bold text-primary mb-6">Existing Web Results</h2>
         
+        {/* Page Filter Tabs */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Button
+            variant={selectedPageFilter === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedPageFilter("all")}
+          >
+            All
+          </Button>
+          {relatedSearches.map((rs) => (
+            <Button
+              key={rs.id}
+              variant={selectedPageFilter === rs.web_result_page ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedPageFilter(rs.web_result_page)}
+            >
+              wr={rs.web_result_page} - {rs.search_text.slice(0, 15)}...
+            </Button>
+          ))}
+        </div>
+        
         <BulkActionToolbar
-          totalCount={results.length}
+          totalCount={filteredResults.length}
           selectedCount={selectedIds.size}
-          isAllSelected={results.length > 0 && selectedIds.size === results.length}
-          onSelectAll={handleSelectAll}
+          isAllSelected={filteredResults.length > 0 && selectedIds.size === filteredResults.length}
+          onSelectAll={(checked) => handleSelectAll(checked)}
           onExportAll={handleExportAll}
           onExportSelected={handleExportSelected}
           onCopy={handleCopy}
@@ -546,7 +505,7 @@ const WebResultsTab = () => {
         />
 
         <div className="space-y-3">
-          {results.map((result) => (
+          {filteredResults.map((result) => (
             <div key={result.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
               <div className="flex items-center gap-4">
                 <Checkbox
@@ -563,9 +522,8 @@ const WebResultsTab = () => {
                 <div>
                   <p className="font-medium text-foreground">{result.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    {getRelatedSearchName(result.web_result_page)} 
+                    wr={result.web_result_page} 
                     {result.is_sponsored && <span className="text-yellow-500"> • Sponsored</span>}
-                    {result.prelanding_key && <span className="text-blue-500"> • Has Prelanding</span>}
                     <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${result.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                       {result.is_active ? 'Active' : 'Inactive'}
                     </span>

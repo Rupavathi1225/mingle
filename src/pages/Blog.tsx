@@ -71,8 +71,8 @@ const Blog = () => {
     setIsLoading(false);
   };
 
-  const handleRelatedSearchClick = (search: RelatedSearch) => {
-    navigate(`/webresult/wr=${search.web_result_page}`);
+  const handleRelatedSearchClick = (search: RelatedSearch, index: number) => {
+    navigate(`/webresult/wr=${index}`);
   };
 
   if (isLoading) {
@@ -126,22 +126,22 @@ const Blog = () => {
           {blog?.title}
         </h1>
 
-        {/* Meta info */}
-        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-8">
+        {/* Meta info - Vertical */}
+        <div className="flex flex-col gap-2 text-sm text-muted-foreground mb-8">
           {blog?.author && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span>{blog.author}</span>
             </div>
           )}
           {blog?.category && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Tag className="h-4 w-4" />
               <span>{blog.category}</span>
             </div>
           )}
           {blog?.created_at && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span>{format(new Date(blog.created_at), "MMMM d, yyyy")}</span>
             </div>
@@ -155,20 +155,20 @@ const Blog = () => {
           </p>
         </div>
 
-        {/* Related Searches Section */}
+        {/* Related Searches Section - Vertical */}
         {relatedSearches.length > 0 && (
           <div className="border-t border-border pt-8 mt-8">
             <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
               <Search className="h-5 w-5" />
               Related Searches
             </h3>
-            <div className="flex flex-wrap gap-3">
-              {relatedSearches.map((search) => (
+            <div className="flex flex-col gap-2">
+              {relatedSearches.map((search, index) => (
                 <Button
                   key={search.id}
-                  onClick={() => handleRelatedSearchClick(search)}
+                  onClick={() => handleRelatedSearchClick(search, index + 1)}
                   variant="outline"
-                  className="hover:bg-primary hover:text-primary-foreground transition-colors"
+                  className="justify-start hover:bg-primary hover:text-primary-foreground transition-colors w-full md:w-auto"
                 >
                   {search.title || search.search_text}
                 </Button>
