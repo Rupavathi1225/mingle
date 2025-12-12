@@ -121,15 +121,12 @@ const WebResultsTab = () => {
 
   const handleCopy = () => {
     const selected = results.filter(r => selectedIds.has(r.id));
-    const links = selected.map(r => r.original_link);
+    // Get unique web_result_pages from selected results
+    const uniquePages = [...new Set(selected.map(r => r.web_result_page))];
+    const baseUrl = window.location.origin;
+    const links = uniquePages.map(page => `${baseUrl}/webresult/${page}`);
     navigator.clipboard.writeText(links.join('\n'));
-    
-    // Open each link in a new tab
-    selected.forEach(r => {
-      window.open(r.original_link, '_blank');
-    });
-    
-    toast({ title: "Success", description: `Copied ${links.length} links and opened in new tabs` });
+    toast({ title: "Success", description: `Copied ${links.length} web result page links` });
   };
 
   const handleBulkActivate = async () => {
