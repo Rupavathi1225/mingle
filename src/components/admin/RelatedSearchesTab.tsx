@@ -108,9 +108,9 @@ const RelatedSearchesTab = () => {
   const handleCopy = () => {
     const selected = searches.filter(s => selectedIds.has(s.id));
     const baseUrl = window.location.origin;
-    const links = selected.map(s => `${baseUrl}/webresult/${s.web_result_page}`);
+    const links = selected.map(s => `${baseUrl}/webresult/wr=${s.web_result_page}`);
     navigator.clipboard.writeText(links.join('\n'));
-    toast({ title: "Success", description: `Copied ${links.length} links` });
+    toast({ title: "Success", description: `Copied ${links.length} related search links` });
   };
 
   const handleBulkActivate = async () => {
