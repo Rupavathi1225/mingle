@@ -100,7 +100,22 @@ const PreLandingsTab = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('prelandings').delete().eq('id', id);
+    // Get the prelanding key first
+    const prelanding = prelandings.find(p => p.id === id);
+    
+    if (prelanding) {
+      // Delete email captures linked to this prelanding
+      await supabase.from('email_captures').delete().eq('prelanding_key', prelanding.key);
+      
+      // Update web results to remove prelanding_key reference
+      await supabase.from('web_results').update({ prelanding_key: null }).eq('prelanding_key', prelanding.key);
+    }
+    
+    const { error } = await supabase.from('prelandings').delete().eq('id', id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete pre-landing", variant: "destructive" });
+      return;
+    }
     toast({ title: "Success", description: "Pre-landing deleted!" });
     fetchPrelandings();
   };
