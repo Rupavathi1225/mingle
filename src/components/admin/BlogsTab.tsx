@@ -84,8 +84,10 @@ const BlogsTab = () => {
 
   const handleCopy = () => {
     const selected = blogs.filter(b => selectedIds.has(b.id));
-    navigator.clipboard.writeText(selected.map(b => `${b.title} - /blog/${b.slug}`).join('\n'));
-    toast.success("Copied");
+    const baseUrl = window.location.origin;
+    const links = selected.map(b => `${baseUrl}/blog/${b.slug}`);
+    navigator.clipboard.writeText(links.join('\n'));
+    toast.success(`Copied ${links.length} blog links`);
   };
 
   const handleBulkActivate = async () => {
