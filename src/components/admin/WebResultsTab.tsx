@@ -422,21 +422,43 @@ const WebResultsTab = () => {
         {/* Manual Entry Section */}
         <div className="border-t border-border pt-6 mt-6">
           <h3 className="text-lg font-semibold mb-4">{editingId ? "Edit Web Result" : "Or Add Manually"}</h3>
+          
+          {/* Related Search Selection as Chips */}
+          <div className="mb-4">
+            <label className="text-sm text-muted-foreground mb-2 block">Related Search (determines page) *</label>
+            <div className="flex flex-wrap gap-2">
+              {relatedSearches.map((rs) => (
+                <Button
+                  key={rs.id}
+                  type="button"
+                  variant={selectedRelatedSearch === rs.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedRelatedSearch(rs.id)}
+                  className={selectedRelatedSearch === rs.id ? "bg-primary text-primary-foreground" : ""}
+                >
+                  {rs.search_text.slice(0, 20)}{rs.search_text.length > 20 ? "..." : ""} (wr={rs.web_result_page})
+                </Button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Title</label>
+              <label className="text-sm text-muted-foreground mb-2 block">Title *</label>
               <Input
                 value={manualTitle}
                 onChange={(e) => setManualTitle(e.target.value)}
                 className="bg-secondary border-border"
+                placeholder="e.g., Fiverr"
               />
             </div>
             <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Original Link</label>
+              <label className="text-sm text-muted-foreground mb-2 block">Original Link *</label>
               <Input
                 value={manualLink}
                 onChange={(e) => setManualLink(e.target.value)}
                 className="bg-secondary border-border"
+                placeholder="https://www.example.com"
               />
             </div>
             <div className="md:col-span-2">
@@ -445,16 +467,26 @@ const WebResultsTab = () => {
                 value={manualDescription}
                 onChange={(e) => setManualDescription(e.target.value)}
                 className="bg-secondary border-border"
+                placeholder="Enter description..."
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">Logo URL</label>
+              <Input
+                value={manualLogoUrl}
+                onChange={(e) => setManualLogoUrl(e.target.value)}
+                className="bg-secondary border-border"
+                placeholder="https://example.com/logo.png"
               />
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Switch checked={manualSponsored} onCheckedChange={setManualSponsored} />
-                <label className="text-sm text-muted-foreground">Sponsored</label>
-              </div>
-              <div className="flex items-center gap-2">
                 <Switch checked={isActive} onCheckedChange={setIsActive} />
                 <label className="text-sm text-muted-foreground">Active</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={manualSponsored} onCheckedChange={setManualSponsored} />
+                <label className="text-sm text-muted-foreground">Sponsored</label>
               </div>
             </div>
           </div>
