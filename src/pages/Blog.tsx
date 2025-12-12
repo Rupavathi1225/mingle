@@ -114,7 +114,7 @@ const Blog = () => {
         {/* Back button */}
         <Button
           variant="ghost"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/")}
           className="mb-6"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
