@@ -296,67 +296,81 @@ const BlogsTab = () => {
               <DialogTitle>{editingBlog ? "Edit Blog" : "Create New Blog"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {/* Title */}
               <div>
                 <Label>Title *</Label>
                 <Input value={title} onChange={(e) => handleTitleChange(e.target.value)} placeholder="Blog title" />
               </div>
+              
+              {/* Slug */}
               <div>
                 <Label>Slug *</Label>
                 <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="blog-slug" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Author</Label>
-                  <Input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Author name" />
-                </div>
-                <div>
-                  <Label>Category</Label>
-                  <Select value={category || "none"} onValueChange={(val) => setCategory(val === "none" ? "" : val)}>
-                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                    <SelectContent className="bg-background border z-50">
-                      <SelectItem value="none">Select category</SelectItem>
-                      <SelectItem value="Finance">Finance</SelectItem>
-                      <SelectItem value="Technology">Technology</SelectItem>
-                      <SelectItem value="Lifestyle">Lifestyle</SelectItem>
-                      <SelectItem value="Business">Business</SelectItem>
-                      <SelectItem value="Health">Health</SelectItem>
-                      <SelectItem value="Education">Education</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              
+              {/* Author */}
+              <div>
+                <Label>Author</Label>
+                <Input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Author name" />
               </div>
+              
+              {/* Category */}
+              <div>
+                <Label>Category</Label>
+                <Select value={category || "none"} onValueChange={(val) => setCategory(val === "none" ? "" : val)}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="none">Select category</SelectItem>
+                    <SelectItem value="Finance">Finance</SelectItem>
+                    <SelectItem value="Technology">Technology</SelectItem>
+                    <SelectItem value="Lifestyle">Lifestyle</SelectItem>
+                    <SelectItem value="Business">Business</SelectItem>
+                    <SelectItem value="Health">Health</SelectItem>
+                    <SelectItem value="Education">Education</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Content */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <Label>Content *</Label>
                   <Button type="button" variant="outline" size="sm" onClick={generateContent} disabled={isGeneratingContent || !title}>
                     {isGeneratingContent ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
-                    Generate Content
+                    Generate AI Content
                   </Button>
                 </div>
                 <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Blog content..." rows={4} />
               </div>
               
-              {/* Related Searches Selection */}
+              {/* Featured Image */}
+              <div>
+                <Label>Featured Image</Label>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={generateImage} disabled={isGeneratingImage || !title}>
+                    {isGeneratingImage ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                    Generate AI Image
+                  </Button>
+                </div>
+                <Input value={featuredImage} onChange={(e) => setFeaturedImage(e.target.value)} placeholder="Or paste image URL here..." className="mt-2" />
+              </div>
+              
+              {/* Related Searches Selection - Vertical Layout */}
               {generatedSearches.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Select Related Searches (max 4)</Label>
-                  <p className="text-xs text-muted-foreground">Selected searches will be linked to this blog and redirect to /wr=1, /wr=2, etc.</p>
-                  <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+                  <Label>Select Related Searches for Landing Page (max 4)</Label>
+                  <p className="text-xs text-muted-foreground">Selected searches will appear on landing page and redirect to /wr=1, /wr=2, etc.</p>
+                  <div className="border rounded-lg p-3 space-y-2 max-h-64 overflow-y-auto">
                     {generatedSearches.map((search, idx) => (
                       <div 
                         key={idx}
                         className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${
-                          search.selected ? 'bg-primary/20 border border-primary' : 'hover:bg-muted'
+                          search.selected ? 'bg-primary/20 border border-primary' : 'hover:bg-muted border border-transparent'
                         }`}
                         onClick={() => toggleSearchSelection(idx)}
                       >
                         <Checkbox checked={search.selected} />
                         <span className="flex-1">{search.text}</span>
-                        {search.selected && (
-                          <span className="text-xs text-primary font-medium">
-                            → /wr={generatedSearches.filter((s, i) => s.selected && i <= idx).length}
-                          </span>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -364,15 +378,7 @@ const BlogsTab = () => {
                 </div>
               )}
               
-              <div>
-                <Label>Featured Image URL</Label>
-                <div className="flex gap-2">
-                  <Input value={featuredImage} onChange={(e) => setFeaturedImage(e.target.value)} placeholder="https://..." className="flex-1" />
-                  <Button type="button" variant="outline" onClick={generateImage} disabled={isGeneratingImage || !title}>
-                    {isGeneratingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  </Button>
-                </div>
-              </div>
+              {/* Status */}
               <div>
                 <Label>Status</Label>
                 <Select value={status} onValueChange={setStatus}>
@@ -383,6 +389,7 @@ const BlogsTab = () => {
                   </SelectContent>
                 </Select>
               </div>
+              
               <Button onClick={handleSave} className="w-full">{editingBlog ? "Update Blog" : "Create Blog"}</Button>
             </div>
           </DialogContent>

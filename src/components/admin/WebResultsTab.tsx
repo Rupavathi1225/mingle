@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Eye } from "lucide-react";
+import { Pencil, Trash2, Eye, Sparkles, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,23 +47,37 @@ interface ClickDetail {
   timestamp: string | null;
 }
 
+interface GeneratedResult {
+  title: string;
+  description: string;
+  link: string;
+  selected: boolean;
+  isSponsored: boolean;
+}
+
 const WebResultsTab = () => {
   const [results, setResults] = useState<WebResult[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [relatedSearches, setRelatedSearches] = useState<RelatedSearch[]>([]);
   const [prelandings, setPrelandings] = useState<Prelanding[]>([]);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [originalLink, setOriginalLink] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
   const [selectedRelatedSearch, setSelectedRelatedSearch] = useState("");
   const [selectedPrelanding, setSelectedPrelanding] = useState("");
-  const [sponsored, setSponsored] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [clickDetails, setClickDetails] = useState<ClickDetail[]>([]);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [selectedResultName, setSelectedResultName] = useState("");
+  
+  // AI Generation state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedResults, setGeneratedResults] = useState<GeneratedResult[]>([]);
+
+  // Manual entry fields
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualDescription, setManualDescription] = useState("");
+  const [manualLink, setManualLink] = useState("");
+  const [manualLogoUrl, setManualLogoUrl] = useState("");
+  const [manualSponsored, setManualSponsored] = useState(false);
 
   useEffect(() => {
     fetchResults();
@@ -148,8 +162,105 @@ const WebResultsTab = () => {
     setSelectedIds(new Set());
   };
 
-  const handleSave = async () => {
-    if (!title || !originalLink || !selectedRelatedSearch) {
+  const generateWebResults = async () => {
+    if (!selectedRelatedSearch) {
+      toast({ title: "Error", description: "Please select a related search first", variant: "destructive" });
+      return;
+    }
+
+    const relatedSearch = relatedSearches.find(rs => rs.id === selectedRelatedSearch);
+    if (!relatedSearch) return;
+
+    setIsGenerating(true);
+    try {
+      const response = await supabase.functions.invoke("generate-web-results", {
+        body: { searchText: relatedSearch.search_text }
+      });
+
+      if (response.error) {
+        toast({ title: "Error", description: response.error.message || "Failed to generate results", variant: "destructive" });
+        return;
+      }
+
+      if (response.data?.results?.length) {
+        setGeneratedResults(response.data.results.map((r: { title: string; description: string; link: string }) => ({
+          ...r,
+          selected: false,
+          isSponsored: false
+        })));
+        toast({ title: "Success", description: "Web results generated!" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to generate results", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const toggleResultSelection = (index: number) => {
+    const selectedCount = generatedResults.filter(r => r.selected).length;
+    const result = generatedResults[index];
+    
+    if (!result.selected && selectedCount >= 4) {
+      toast({ title: "Error", description: "Maximum 4 results can be selected", variant: "destructive" });
+      return;
+    }
+    
+    setGeneratedResults(prev => prev.map((r, i) => 
+      i === index ? { ...r, selected: !r.selected } : r
+    ));
+  };
+
+  const toggleResultSponsored = (index: number) => {
+    setGeneratedResults(prev => prev.map((r, i) => 
+      i === index ? { ...r, isSponsored: !r.isSponsored } : r
+    ));
+  };
+
+  const handleSaveGeneratedResults = async () => {
+    if (!selectedRelatedSearch) {
+      toast({ title: "Error", description: "Related search is required", variant: "destructive" });
+      return;
+    }
+
+    const relatedSearch = relatedSearches.find(rs => rs.id === selectedRelatedSearch);
+    if (!relatedSearch) return;
+
+    const selectedResults = generatedResults.filter(r => r.selected);
+    if (selectedResults.length === 0) {
+      toast({ title: "Error", description: "Please select at least one result", variant: "destructive" });
+      return;
+    }
+
+    const selectedPrelandingData = selectedPrelanding && selectedPrelanding !== "none" 
+      ? prelandings.find(p => p.id === selectedPrelanding) 
+      : null;
+
+    const resultsToInsert = selectedResults.map((r, idx) => ({
+      title: r.title,
+      description: r.description,
+      original_link: r.link,
+      web_result_page: relatedSearch.web_result_page,
+      prelanding_key: selectedPrelandingData?.key || null,
+      is_sponsored: r.isSponsored,
+      is_active: isActive,
+      position: idx
+    }));
+
+    const { error } = await supabase.from('web_results').insert(resultsToInsert);
+    
+    if (error) {
+      toast({ title: "Error", description: "Failed to save results", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Success", description: `Created ${selectedResults.length} web results!` });
+    resetForm();
+    fetchResults();
+  };
+
+  const handleSaveManual = async () => {
+    if (!manualTitle || !manualLink || !selectedRelatedSearch) {
       toast({ title: "Error", description: "Title, link, and related search are required", variant: "destructive" });
       return;
     }
@@ -165,13 +276,13 @@ const WebResultsTab = () => {
       : null;
 
     const payload = {
-      title,
-      description: description || null,
-      original_link: originalLink,
-      logo_url: logoUrl || null,
+      title: manualTitle,
+      description: manualDescription || null,
+      original_link: manualLink,
+      logo_url: manualLogoUrl || null,
       web_result_page: relatedSearch.web_result_page,
       prelanding_key: selectedPrelandingData?.key || null,
-      is_sponsored: sponsored,
+      is_sponsored: manualSponsored,
       is_active: isActive
     };
 
@@ -189,16 +300,17 @@ const WebResultsTab = () => {
 
   const handleEdit = (result: WebResult) => {
     setEditingId(result.id);
-    setTitle(result.title);
-    setDescription(result.description || "");
-    setOriginalLink(result.original_link);
-    setLogoUrl(result.logo_url || "");
+    setManualTitle(result.title);
+    setManualDescription(result.description || "");
+    setManualLink(result.original_link);
+    setManualLogoUrl(result.logo_url || "");
     const matchingRS = relatedSearches.find(rs => rs.web_result_page === result.web_result_page);
     setSelectedRelatedSearch(matchingRS?.id || "");
     const matchingPL = prelandings.find(p => p.key === result.prelanding_key);
     setSelectedPrelanding(matchingPL?.id || "");
-    setSponsored(result.is_sponsored || false);
+    setManualSponsored(result.is_sponsored || false);
     setIsActive(result.is_active);
+    setGeneratedResults([]);
   };
 
   const handleDelete = async (id: string) => {
@@ -209,14 +321,15 @@ const WebResultsTab = () => {
 
   const resetForm = () => {
     setEditingId(null);
-    setTitle("");
-    setDescription("");
-    setOriginalLink("");
-    setLogoUrl("");
+    setManualTitle("");
+    setManualDescription("");
+    setManualLink("");
+    setManualLogoUrl("");
     setSelectedRelatedSearch("");
     setSelectedPrelanding("");
-    setSponsored(false);
+    setManualSponsored(false);
     setIsActive(true);
+    setGeneratedResults([]);
   };
 
   const handleViewBreakdown = async (result: WebResult) => {
@@ -236,92 +349,183 @@ const WebResultsTab = () => {
     return rs?.search_text || `Page ${webResultPage}`;
   };
 
+  const selectedGeneratedCount = generatedResults.filter(r => r.selected).length;
+
   return (
     <div className="space-y-6">
       <div className="bg-card p-6 rounded-lg border border-border">
         <h2 className="text-xl font-bold text-primary mb-6">
-          {editingId ? "Edit Web Result" : "Add Web Result"}
+          {editingId ? "Edit Web Result" : "Add Web Results"}
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Title</label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="bg-secondary border-border"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Original Link</label>
-            <Input
-              value={originalLink}
-              onChange={(e) => setOriginalLink(e.target.value)}
-              className="bg-secondary border-border"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="text-sm text-muted-foreground mb-2 block">Description</label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="bg-secondary border-border"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Logo URL</label>
-            <Input
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              className="bg-secondary border-border"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Related Search (determines page)</label>
-            <Select value={selectedRelatedSearch} onValueChange={setSelectedRelatedSearch}>
-              <SelectTrigger className="bg-secondary border-border">
-                <SelectValue placeholder="Select related search" />
-              </SelectTrigger>
-              <SelectContent>
-                {relatedSearches.map((rs) => (
-                  <SelectItem key={rs.id} value={rs.id}>
-                    {rs.search_text} (Page {rs.web_result_page})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Prelanding (optional)</label>
-            <Select value={selectedPrelanding} onValueChange={setSelectedPrelanding}>
-              <SelectTrigger className="bg-secondary border-border">
-                <SelectValue placeholder="No prelanding (direct link)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No prelanding (direct link)</SelectItem>
-                {prelandings.map((pl) => (
-                  <SelectItem key={pl.id} value={pl.id}>
-                    {pl.headline}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Switch checked={sponsored} onCheckedChange={setSponsored} />
-              <label className="text-sm text-muted-foreground">Sponsored</label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={isActive} onCheckedChange={setIsActive} />
-              <label className="text-sm text-muted-foreground">Active</label>
-            </div>
-          </div>
+        {/* Related Search Selection */}
+        <div className="mb-4">
+          <label className="text-sm text-muted-foreground mb-2 block">Related Search (determines page) *</label>
+          <Select value={selectedRelatedSearch} onValueChange={setSelectedRelatedSearch}>
+            <SelectTrigger className="bg-secondary border-border">
+              <SelectValue placeholder="Select related search" />
+            </SelectTrigger>
+            <SelectContent>
+              {relatedSearches.map((rs) => (
+                <SelectItem key={rs.id} value={rs.id}>
+                  {rs.search_text} (Page {rs.web_result_page})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="flex gap-2 mt-6">
-          <Button onClick={handleSave}>{editingId ? "Update" : "Create"}</Button>
-          {editingId && <Button variant="outline" onClick={resetForm}>Cancel</Button>}
+        {/* Generate AI Results Button */}
+        {!editingId && (
+          <div className="mb-6">
+            <Button 
+              onClick={generateWebResults} 
+              disabled={isGenerating || !selectedRelatedSearch}
+              variant="outline"
+            >
+              {isGenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
+              Generate AI Web Results
+            </Button>
+          </div>
+        )}
+
+        {/* Generated Results Selection */}
+        {generatedResults.length > 0 && (
+          <div className="mb-6 space-y-3">
+            <label className="text-sm text-muted-foreground block">Select Web Results (max 4) - Toggle Sponsored for each</label>
+            <div className="border rounded-lg p-3 space-y-2 max-h-80 overflow-y-auto">
+              {generatedResults.map((result, idx) => (
+                <div 
+                  key={idx}
+                  className={`p-3 rounded border transition-colors ${
+                    result.selected ? 'bg-primary/20 border-primary' : 'hover:bg-muted border-transparent'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox 
+                      checked={result.selected} 
+                      onCheckedChange={() => toggleResultSelection(idx)}
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium">{result.title}</p>
+                      <p className="text-sm text-muted-foreground">{result.description}</p>
+                      <p className="text-xs text-primary mt-1">{result.link}</p>
+                    </div>
+                    {result.selected && (
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={result.isSponsored} 
+                          onCheckedChange={() => toggleResultSponsored(idx)}
+                        />
+                        <span className={`text-xs ${result.isSponsored ? 'text-yellow-500' : 'text-muted-foreground'}`}>
+                          {result.isSponsored ? 'Sponsored' : 'Normal'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">{selectedGeneratedCount}/4 selected</p>
+            
+            {/* Common options for generated results */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="text-sm text-muted-foreground mb-2 block">Prelanding (optional)</label>
+                <Select value={selectedPrelanding} onValueChange={setSelectedPrelanding}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="No prelanding (direct link)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No prelanding (direct link)</SelectItem>
+                    {prelandings.map((pl) => (
+                      <SelectItem key={pl.id} value={pl.id}>
+                        {pl.headline}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={isActive} onCheckedChange={setIsActive} />
+                <label className="text-sm text-muted-foreground">Active</label>
+              </div>
+            </div>
+            
+            <Button onClick={handleSaveGeneratedResults} className="mt-4">
+              Save Selected Results ({selectedGeneratedCount})
+            </Button>
+          </div>
+        )}
+
+        {/* Manual Entry Section */}
+        <div className="border-t border-border pt-6 mt-6">
+          <h3 className="text-lg font-semibold mb-4">{editingId ? "Edit Web Result" : "Or Add Manually"}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">Title</label>
+              <Input
+                value={manualTitle}
+                onChange={(e) => setManualTitle(e.target.value)}
+                className="bg-secondary border-border"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">Original Link</label>
+              <Input
+                value={manualLink}
+                onChange={(e) => setManualLink(e.target.value)}
+                className="bg-secondary border-border"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm text-muted-foreground mb-2 block">Description</label>
+              <Textarea
+                value={manualDescription}
+                onChange={(e) => setManualDescription(e.target.value)}
+                className="bg-secondary border-border"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">Logo URL</label>
+              <Input
+                value={manualLogoUrl}
+                onChange={(e) => setManualLogoUrl(e.target.value)}
+                className="bg-secondary border-border"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">Prelanding (optional)</label>
+              <Select value={selectedPrelanding} onValueChange={setSelectedPrelanding}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="No prelanding (direct link)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No prelanding (direct link)</SelectItem>
+                  {prelandings.map((pl) => (
+                    <SelectItem key={pl.id} value={pl.id}>
+                      {pl.headline}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch checked={manualSponsored} onCheckedChange={setManualSponsored} />
+                <label className="text-sm text-muted-foreground">Sponsored</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={isActive} onCheckedChange={setIsActive} />
+                <label className="text-sm text-muted-foreground">Active</label>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-6">
+            <Button onClick={handleSaveManual}>{editingId ? "Update" : "Create Manual"}</Button>
+            {editingId && <Button variant="outline" onClick={resetForm}>Cancel</Button>}
+          </div>
         </div>
       </div>
 
