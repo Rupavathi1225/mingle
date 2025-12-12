@@ -306,7 +306,6 @@ const WebResultsTab = () => {
     setIsActive(true);
     setGeneratedResults([]);
   };
-  };
 
   const handleViewBreakdown = async (result: WebResult) => {
     const { data } = await supabase
@@ -584,3 +583,4 @@ const WebResultsTab = () => {
 };
 
 export default WebResultsTab;
+
