@@ -423,23 +423,21 @@ const WebResultsTab = () => {
         <div className="border-t border-border pt-6 mt-6">
           <h3 className="text-lg font-semibold mb-4">{editingId ? "Edit Web Result" : "Or Add Manually"}</h3>
           
-          {/* Related Search Selection as Chips */}
+          {/* Related Search Selection as Dropdown */}
           <div className="mb-4">
             <label className="text-sm text-muted-foreground mb-2 block">Related Search (determines page) *</label>
-            <div className="flex flex-wrap gap-2">
-              {relatedSearches.map((rs) => (
-                <Button
-                  key={rs.id}
-                  type="button"
-                  variant={selectedRelatedSearch === rs.id ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedRelatedSearch(rs.id)}
-                  className={selectedRelatedSearch === rs.id ? "bg-primary text-primary-foreground" : ""}
-                >
-                  {rs.search_text.slice(0, 20)}{rs.search_text.length > 20 ? "..." : ""} (wr={rs.web_result_page})
-                </Button>
-              ))}
-            </div>
+            <Select value={selectedRelatedSearch} onValueChange={setSelectedRelatedSearch}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue placeholder="Select related search" />
+              </SelectTrigger>
+              <SelectContent>
+                {relatedSearches.map((rs) => (
+                  <SelectItem key={rs.id} value={rs.id}>
+                    {rs.search_text} (wr={rs.web_result_page})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
