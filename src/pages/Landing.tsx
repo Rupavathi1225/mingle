@@ -77,14 +77,14 @@ const Landing = () => {
           <p className="text-muted-foreground max-w-2xl mx-auto">{content.description}</p>
         </div>
 
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-2xl mx-auto">
           <h3 className="text-xl font-semibold text-foreground text-center mb-6">Related Searches</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-3">
             {searches.map((search) => (
               <button
                 key={search.id}
                 onClick={() => handleSearchClick(search)}
-                className="bg-secondary hover:bg-secondary/80 text-foreground px-6 py-4 rounded-lg text-left transition-colors"
+                className="bg-secondary hover:bg-secondary/80 text-foreground px-6 py-4 rounded-lg text-left transition-colors w-full"
               >
                 {search.search_text}
               </button>

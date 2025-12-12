@@ -103,7 +103,25 @@ const BlogsTab = () => {
   };
 
   const handleBulkDelete = async () => {
-    await supabase.from('blogs').delete().in('id', Array.from(selectedIds));
+    const ids = Array.from(selectedIds);
+    
+    // Get related searches for these blogs
+    const { data: relatedSearches } = await supabase.from('related_searches').select('id').in('blog_id', ids);
+    const rsIds = relatedSearches?.map(rs => rs.id) || [];
+    
+    // Delete click tracking for related searches
+    if (rsIds.length > 0) {
+      await supabase.from('click_tracking').delete().in('related_search_id', rsIds);
+    }
+    
+    // Delete related searches
+    await supabase.from('related_searches').delete().in('blog_id', ids);
+    
+    const { error } = await supabase.from('blogs').delete().in('id', ids);
+    if (error) {
+      toast.error("Failed to delete blogs");
+      return;
+    }
     toast.success("Deleted");
     fetchBlogs();
     setSelectedIds(new Set());
@@ -269,7 +287,16 @@ const BlogsTab = () => {
   };
 
   const handleDelete = async (id: string) => {
-    // First delete related searches
+    // Get related searches for this blog
+    const { data: relatedSearches } = await supabase.from('related_searches').select('id').eq('blog_id', id);
+    const rsIds = relatedSearches?.map(rs => rs.id) || [];
+    
+    // Delete click tracking for related searches
+    if (rsIds.length > 0) {
+      await supabase.from('click_tracking').delete().in('related_search_id', rsIds);
+    }
+    
+    // Delete related searches
     await supabase.from("related_searches").delete().eq("blog_id", id);
     
     const { error } = await supabase.from("blogs").delete().eq("id", id);
