@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Save } from "lucide-react";
+import { Pencil, Trash2, Save, Sparkles, Loader2 } from "lucide-react";
 
 interface Prelanding {
   id: string;
@@ -23,13 +23,13 @@ interface Prelanding {
 interface WebResult {
   id: string;
   title: string;
+  description: string | null;
 }
 
 const PreLandingsTab = () => {
   const [prelandings, setPrelandings] = useState<Prelanding[]>([]);
   const [webResults, setWebResults] = useState<WebResult[]>([]);
   const [selectedWebResult, setSelectedWebResult] = useState("");
-  // Key is auto-generated from headline
   const [logoUrl, setLogoUrl] = useState("");
   const [mainImageUrl, setMainImageUrl] = useState("");
   const [headline, setHeadline] = useState("");
@@ -38,6 +38,7 @@ const PreLandingsTab = () => {
   const [redirectDescription, setRedirectDescription] = useState("You will be redirected to...");
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     fetchPrelandings();
@@ -45,7 +46,7 @@ const PreLandingsTab = () => {
   }, []);
 
   const fetchWebResults = async () => {
-    const { data } = await supabase.from('web_results').select('id, title').order('title');
+    const { data } = await supabase.from('web_results').select('id, title, description').order('title');
     if (data) setWebResults(data);
   };
 
@@ -56,6 +57,44 @@ const PreLandingsTab = () => {
 
   const generateKey = (text: string) => {
     return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36);
+  };
+
+  const handleGenerateWithAI = async () => {
+    if (!selectedWebResult || selectedWebResult === "none") {
+      toast({ title: "Error", description: "Please select a web result first", variant: "destructive" });
+      return;
+    }
+
+    const webResult = webResults.find(wr => wr.id === selectedWebResult);
+    if (!webResult) {
+      toast({ title: "Error", description: "Web result not found", variant: "destructive" });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-prelanding-content', {
+        body: { 
+          webResultTitle: webResult.title,
+          webResultDescription: webResult.description 
+        }
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        setHeadline(data.headline || "");
+        setSubtitle(data.subtitle || "");
+        setDescription(data.description || "");
+        setRedirectDescription(data.redirect_description || "You will be redirected to...");
+        toast({ title: "Success", description: "Content generated with AI!" });
+      }
+    } catch (error) {
+      console.error("AI generation error:", error);
+      toast({ title: "Error", description: "Failed to generate content", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleSave = async () => {
@@ -100,14 +139,10 @@ const PreLandingsTab = () => {
   };
 
   const handleDelete = async (id: string) => {
-    // Get the prelanding key first
     const prelanding = prelandings.find(p => p.id === id);
     
     if (prelanding) {
-      // Delete email captures linked to this prelanding
       await supabase.from('email_captures').delete().eq('prelanding_key', prelanding.key);
-      
-      // Update web results to remove prelanding_key reference
       await supabase.from('web_results').update({ prelanding_key: null }).eq('prelanding_key', prelanding.key);
     }
     
@@ -122,6 +157,7 @@ const PreLandingsTab = () => {
 
   const resetForm = () => {
     setEditingId(null);
+    setSelectedWebResult("");
     setLogoUrl("");
     setMainImageUrl("");
     setHeadline("");
@@ -141,17 +177,32 @@ const PreLandingsTab = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <label className="text-sm text-muted-foreground mb-2 block">Select Web Result</label>
-            <Select value={selectedWebResult} onValueChange={setSelectedWebResult}>
-              <SelectTrigger className="bg-secondary border-border">
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {webResults.map((wr) => (
-                  <SelectItem key={wr.id} value={wr.id}>{wr.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={selectedWebResult} onValueChange={setSelectedWebResult}>
+                <SelectTrigger className="bg-secondary border-border flex-1">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {webResults.map((wr) => (
+                    <SelectItem key={wr.id} value={wr.id}>{wr.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={handleGenerateWithAI} 
+                disabled={isGenerating || !selectedWebResult || selectedWebResult === "none"}
+                variant="outline"
+                className="shrink-0"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Generate with AI
+              </Button>
+            </div>
           </div>
 
           <div>
