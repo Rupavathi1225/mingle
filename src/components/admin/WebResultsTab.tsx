@@ -394,11 +394,11 @@ const WebResultsTab = () => {
           </div>
         )}
 
-        {/* Generated Results Selection */}
+        {/* Generated Results Selection with Inline Editing */}
         {generatedResults.length > 0 && (
           <div className="mb-6 space-y-3">
-            <label className="text-sm text-muted-foreground block">Select Web Results (max 4) - Toggle Sponsored for each</label>
-            <div className="border rounded-lg p-3 space-y-2 max-h-80 overflow-y-auto">
+            <label className="text-sm text-muted-foreground block">Select Web Results (max 4) - Edit inline before saving</label>
+            <div className="border rounded-lg p-3 space-y-3 max-h-[500px] overflow-y-auto">
               {generatedResults.map((result, idx) => (
                 <div 
                   key={idx}
@@ -410,11 +410,40 @@ const WebResultsTab = () => {
                     <Checkbox 
                       checked={result.selected} 
                       onCheckedChange={() => toggleResultSelection(idx)}
+                      className="mt-2"
                     />
-                    <div className="flex-1">
-                      <p className="font-medium">{result.title}</p>
-                      <p className="text-sm text-muted-foreground">{result.description}</p>
-                      <p className="text-xs text-primary mt-1">{result.link}</p>
+                    <div className="flex-1 space-y-2">
+                      <Input
+                        value={result.title}
+                        onChange={(e) => {
+                          setGeneratedResults(prev => prev.map((r, i) => 
+                            i === idx ? { ...r, title: e.target.value } : r
+                          ));
+                        }}
+                        placeholder="Title"
+                        className="font-medium"
+                      />
+                      <Textarea
+                        value={result.description}
+                        onChange={(e) => {
+                          setGeneratedResults(prev => prev.map((r, i) => 
+                            i === idx ? { ...r, description: e.target.value } : r
+                          ));
+                        }}
+                        placeholder="Description"
+                        rows={2}
+                        className="text-sm"
+                      />
+                      <Input
+                        value={result.link}
+                        onChange={(e) => {
+                          setGeneratedResults(prev => prev.map((r, i) => 
+                            i === idx ? { ...r, link: e.target.value } : r
+                          ));
+                        }}
+                        placeholder="Link URL"
+                        className="text-xs"
+                      />
                     </div>
                     {result.selected && (
                       <div className="flex items-center gap-2">
