@@ -87,7 +87,10 @@ const PreLandingsTab = () => {
         setSubtitle(data.subtitle || "");
         setDescription(data.description || "");
         setRedirectDescription(data.redirect_description || "You will be redirected to...");
-        toast({ title: "Success", description: "Content generated with AI!" });
+        if (data.main_image_url) {
+          setMainImageUrl(data.main_image_url);
+        }
+        toast({ title: "Success", description: "Content and image generated with AI!" });
       }
     } catch (error) {
       console.error("AI generation error:", error);
