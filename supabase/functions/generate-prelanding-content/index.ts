@@ -20,7 +20,8 @@ serve(async (req) => {
 
     console.log("Generating prelanding content for:", webResultTitle);
 
-    const prompt = `Generate compelling pre-landing page content for an email capture page. The page is related to: "${webResultTitle}"${webResultDescription ? ` - ${webResultDescription}` : ''}.
+    // Generate text content
+    const textPrompt = `Generate compelling pre-landing page content for an email capture page. The page is related to: "${webResultTitle}"${webResultDescription ? ` - ${webResultDescription}` : ''}.
 
 Generate the following fields in JSON format:
 - headline: A compelling, attention-grabbing headline (max 60 characters)
@@ -30,7 +31,7 @@ Generate the following fields in JSON format:
 
 Return ONLY valid JSON with these exact keys: headline, subtitle, description, redirect_description`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const textResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -40,27 +41,26 @@ Return ONLY valid JSON with these exact keys: headline, subtitle, description, r
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: "You are a marketing copywriter. Generate compelling pre-landing page content. Return ONLY valid JSON, no markdown or code blocks." },
-          { role: "user", content: prompt }
+          { role: "user", content: textPrompt }
         ],
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+    if (!textResponse.ok) {
+      const errorText = await textResponse.text();
+      console.error("AI text gateway error:", textResponse.status, errorText);
+      throw new Error(`AI gateway error: ${textResponse.status}`);
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const textData = await textResponse.json();
+    const textContent = textData.choices?.[0]?.message?.content;
     
-    console.log("Raw AI response:", content);
+    console.log("Raw text AI response:", textContent);
 
     // Parse the JSON from the response
     let parsedContent;
     try {
-      // Try to extract JSON from the response (handle markdown code blocks if present)
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const jsonMatch = textContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsedContent = JSON.parse(jsonMatch[0]);
       } else {
@@ -71,7 +71,38 @@ Return ONLY valid JSON with these exact keys: headline, subtitle, description, r
       throw new Error("Failed to parse AI response");
     }
 
-    return new Response(JSON.stringify(parsedContent), {
+    // Generate image
+    console.log("Generating main image...");
+    const imagePrompt = `Create a professional, modern hero image for a landing page about: "${webResultTitle}". The image should be clean, visually appealing, and suitable for a business/marketing context. No text in the image.`;
+
+    const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image-preview",
+        messages: [
+          { role: "user", content: imagePrompt }
+        ],
+        modalities: ["image", "text"]
+      }),
+    });
+
+    let mainImageUrl = null;
+    if (imageResponse.ok) {
+      const imageData = await imageResponse.json();
+      const generatedImage = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (generatedImage) {
+        mainImageUrl = generatedImage;
+        console.log("Image generated successfully");
+      }
+    } else {
+      console.error("Image generation failed:", await imageResponse.text());
+    }
+
+    return new Response(JSON.stringify({ ...parsedContent, main_image_url: mainImageUrl }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
