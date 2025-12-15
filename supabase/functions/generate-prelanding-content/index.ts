@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { webResultTitle, webResultDescription } = await req.json();
+    const { webResultTitle, webResultDescription, originalLink } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -23,11 +23,13 @@ serve(async (req) => {
     // Generate text content
     const textPrompt = `Generate compelling pre-landing page content for an email capture page. The page is related to: "${webResultTitle}"${webResultDescription ? ` - ${webResultDescription}` : ''}.
 
+The user will be redirected to: ${originalLink || 'the destination website'}
+
 Generate the following fields in JSON format:
 - headline: A compelling, attention-grabbing headline (max 60 characters)
 - subtitle: A supporting subtitle that adds context (max 100 characters)
 - description: A brief description explaining the value proposition (max 200 characters)
-- redirect_description: A short text like "You will be redirected to..." (max 50 characters)
+- redirect_description: A text describing where user will go after signup, mentioning the actual destination (max 80 characters)
 
 Return ONLY valid JSON with these exact keys: headline, subtitle, description, redirect_description`;
 
@@ -90,16 +92,21 @@ Return ONLY valid JSON with these exact keys: headline, subtitle, description, r
       }),
     });
 
-    let mainImageUrl = null;
+    // Default placeholder image if AI generation fails
+    const defaultImageUrl = "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=400&fit=crop";
+    
+    let mainImageUrl = defaultImageUrl;
     if (imageResponse.ok) {
       const imageData = await imageResponse.json();
       const generatedImage = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
       if (generatedImage) {
         mainImageUrl = generatedImage;
         console.log("Image generated successfully");
+      } else {
+        console.log("Using default image as AI did not return an image");
       }
     } else {
-      console.error("Image generation failed:", await imageResponse.text());
+      console.error("Image generation failed, using default image:", await imageResponse.text());
     }
 
     return new Response(JSON.stringify({ ...parsedContent, main_image_url: mainImageUrl }), {
