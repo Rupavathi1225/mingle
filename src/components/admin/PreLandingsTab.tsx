@@ -24,6 +24,7 @@ interface WebResult {
   id: string;
   title: string;
   description: string | null;
+  original_link: string;
 }
 
 const PreLandingsTab = () => {
@@ -46,7 +47,7 @@ const PreLandingsTab = () => {
   }, []);
 
   const fetchWebResults = async () => {
-    const { data } = await supabase.from('web_results').select('id, title, description').order('title');
+    const { data } = await supabase.from('web_results').select('id, title, description, original_link').order('title');
     if (data) setWebResults(data);
   };
 
@@ -76,7 +77,8 @@ const PreLandingsTab = () => {
       const { data, error } = await supabase.functions.invoke('generate-prelanding-content', {
         body: { 
           webResultTitle: webResult.title,
-          webResultDescription: webResult.description 
+          webResultDescription: webResult.description,
+          originalLink: webResult.original_link
         }
       });
 
@@ -86,7 +88,7 @@ const PreLandingsTab = () => {
         setHeadline(data.headline || "");
         setSubtitle(data.subtitle || "");
         setDescription(data.description || "");
-        setRedirectDescription(data.redirect_description || "You will be redirected to...");
+        setRedirectDescription(data.redirect_description || `You will be redirected to ${webResult.original_link}`);
         if (data.main_image_url) {
           setMainImageUrl(data.main_image_url);
         }
@@ -122,8 +124,14 @@ const PreLandingsTab = () => {
       await supabase.from('prelandings').update(updatePayload).eq('id', editingId);
       toast({ title: "Success", description: "Pre-landing updated!" });
     } else {
-      await supabase.from('prelandings').insert(payload);
-      toast({ title: "Success", description: "Pre-landing created!" });
+      const { data: newPrelanding } = await supabase.from('prelandings').insert(payload).select().single();
+      
+      // Auto-link the prelanding to the selected web result
+      if (newPrelanding && selectedWebResult && selectedWebResult !== "none") {
+        await supabase.from('web_results').update({ prelanding_key: newPrelanding.key }).eq('id', selectedWebResult);
+      }
+      
+      toast({ title: "Success", description: "Pre-landing created and linked to web result!" });
     }
 
     resetForm();
