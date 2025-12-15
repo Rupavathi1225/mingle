@@ -384,22 +384,33 @@ const BlogsTab = () => {
                 <Input value={featuredImage} onChange={(e) => setFeaturedImage(e.target.value)} placeholder="Or paste image URL here..." className="mt-2" />
               </div>
               
-              {/* Related Searches Selection - Vertical Layout */}
+              {/* Related Searches Selection - Vertical Layout with Inline Editing */}
               {generatedSearches.length > 0 && (
                 <div className="space-y-2">
                   <Label>Select Related Searches for Landing Page (max 4)</Label>
-                  <p className="text-xs text-muted-foreground">Selected searches will appear on landing page and redirect to /wr=1, /wr=2, etc.</p>
+                  <p className="text-xs text-muted-foreground">Click to select. Edit text inline before saving.</p>
                   <div className="border rounded-lg p-3 space-y-2 max-h-64 overflow-y-auto">
                     {generatedSearches.map((search, idx) => (
                       <div 
                         key={idx}
-                        className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${
+                        className={`flex items-center gap-3 p-2 rounded transition-colors ${
                           search.selected ? 'bg-primary/20 border border-primary' : 'hover:bg-muted border border-transparent'
                         }`}
-                        onClick={() => toggleSearchSelection(idx)}
                       >
-                        <Checkbox checked={search.selected} />
-                        <span className="flex-1">{search.text}</span>
+                        <Checkbox 
+                          checked={search.selected} 
+                          onCheckedChange={() => toggleSearchSelection(idx)}
+                        />
+                        <Input
+                          value={search.text}
+                          onChange={(e) => {
+                            setGeneratedSearches(prev => prev.map((s, i) => 
+                              i === idx ? { ...s, text: e.target.value } : s
+                            ));
+                          }}
+                          className="flex-1"
+                          onClick={(e) => e.stopPropagation()}
+                        />
                       </div>
                     ))}
                   </div>
