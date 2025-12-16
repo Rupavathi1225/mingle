@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, User, Tag, Search } from "lucide-react";
+import { ArrowLeft, Calendar, User, Tag, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 
 interface Blog {
@@ -71,8 +71,8 @@ const Blog = () => {
     setIsLoading(false);
   };
 
-  const handleRelatedSearchClick = (search: RelatedSearch, index: number) => {
-    navigate(`/webresult/wr=${index}`);
+  const handleRelatedSearchClick = (search: RelatedSearch) => {
+    navigate(`/webresult/${search.web_result_page}`);
   };
 
   if (isLoading) {
@@ -98,19 +98,7 @@ const Blog = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      {blog?.featured_image && (
-        <div className="relative w-full h-64 md:h-96">
-          <img
-            src={blog.featured_image}
-            alt={blog.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
-        </div>
-      )}
-
-      <article className="container mx-auto px-4 py-8 max-w-4xl">
+      <article className="container mx-auto px-4 py-8 max-w-3xl">
         {/* Back button */}
         <Button
           variant="ghost"
@@ -122,26 +110,26 @@ const Blog = () => {
         </Button>
 
         {/* Title */}
-        <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+        <h1 className="text-2xl md:text-3xl font-bold italic text-foreground mb-4">
           {blog?.title}
         </h1>
 
-        {/* Meta info - Vertical */}
-        <div className="flex flex-col gap-2 text-sm text-muted-foreground mb-8">
+        {/* Meta info - Horizontal */}
+        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-6">
           {blog?.author && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <User className="h-4 w-4" />
               <span>{blog.author}</span>
             </div>
           )}
           {blog?.category && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Tag className="h-4 w-4" />
               <span>{blog.category}</span>
             </div>
           )}
           {blog?.created_at && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
               <span>{format(new Date(blog.created_at), "MMMM d, yyyy")}</span>
             </div>
@@ -150,28 +138,31 @@ const Blog = () => {
 
         {/* Content */}
         <div className="prose prose-invert max-w-none mb-8">
-          <p className="text-foreground whitespace-pre-wrap leading-relaxed">
+          <p className="text-foreground whitespace-pre-wrap leading-relaxed text-base">
             {blog?.content}
           </p>
         </div>
 
-        {/* Related Searches Section - Vertical */}
+        {/* Related Searches Section - Compact Style like reference */}
         {relatedSearches.length > 0 && (
           <div className="border-t border-border pt-8 mt-8">
-            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Search className="h-5 w-5" />
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide text-center mb-6">
               Related Searches
             </h3>
             <div className="flex flex-col gap-2">
               {relatedSearches.map((search, index) => (
-                <Button
+                <button
                   key={search.id}
-                  onClick={() => handleRelatedSearchClick(search, index + 1)}
-                  variant="outline"
-                  className="justify-start hover:bg-primary hover:text-primary-foreground transition-colors w-full md:w-auto"
+                  onClick={() => handleRelatedSearchClick(search)}
+                  className={`flex items-center justify-between px-4 py-3 rounded-lg border transition-all text-left ${
+                    index === 0 
+                      ? 'bg-primary/20 border-primary text-foreground hover:bg-primary/30' 
+                      : 'bg-secondary/50 border-border text-foreground hover:bg-secondary'
+                  }`}
                 >
-                  {search.title || search.search_text}
-                </Button>
+                  <span className="text-sm font-medium">{search.title || search.search_text}</span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </button>
               ))}
             </div>
           </div>

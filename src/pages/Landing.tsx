@@ -11,10 +11,12 @@ interface LandingContent {
 interface RelatedSearch {
   id: string;
   search_text: string;
+  title: string | null;
   web_result_page: number;
   position: number;
   display_order: number;
   is_active: boolean;
+  blog_id: string | null;
 }
 
 const Landing = () => {
@@ -35,11 +37,15 @@ const Landing = () => {
   };
 
   const fetchSearches = async () => {
+    // Fetch related searches that have no blog_id (global) or are active
     const { data } = await supabase
       .from('related_searches')
       .select('*')
       .eq('is_active', true)
+      .is('blog_id', null)
       .order('display_order', { ascending: true });
+    
+    console.log("Fetched searches for landing:", data);
     if (data) setSearches(data);
   };
 
@@ -77,20 +83,28 @@ const Landing = () => {
           <p className="text-muted-foreground max-w-2xl mx-auto">{content.description}</p>
         </div>
 
-        <div className="max-w-2xl mx-auto">
-          <h3 className="text-xl font-semibold text-foreground text-center mb-6">Related Searches</h3>
-          <div className="flex flex-col gap-3">
-            {searches.map((search) => (
-              <button
-                key={search.id}
-                onClick={() => handleSearchClick(search)}
-                className="bg-secondary hover:bg-secondary/80 text-foreground px-6 py-4 rounded-lg text-left transition-colors w-full"
-              >
-                {search.search_text}
-              </button>
-            ))}
+        {searches.length > 0 && (
+          <div className="max-w-2xl mx-auto">
+            <h3 className="text-xl font-semibold text-foreground text-center mb-6">Related Searches</h3>
+            <div className="flex flex-col gap-3">
+              {searches.map((search) => (
+                <button
+                  key={search.id}
+                  onClick={() => handleSearchClick(search)}
+                  className="bg-secondary hover:bg-secondary/80 text-foreground px-6 py-4 rounded-lg text-left transition-colors w-full"
+                >
+                  {search.title || search.search_text}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {searches.length === 0 && (
+          <div className="text-center text-muted-foreground">
+            <p>No searches available. Add some in the admin panel.</p>
+          </div>
+        )}
       </main>
     </div>
   );
