@@ -20,6 +20,10 @@ serve(async (req) => {
 
     console.log("Generating prelanding content for:", webResultTitle);
 
+    // Default images
+    const defaultMainImageUrl = "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=400&fit=crop";
+    const defaultLogoUrl = "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&h=200&fit=crop";
+
     // Generate text content
     const textPrompt = `Generate compelling pre-landing page content for an email capture page. The page is related to: "${webResultTitle}"${webResultDescription ? ` - ${webResultDescription}` : ''}.
 
@@ -29,7 +33,7 @@ Generate the following fields in JSON format:
 - headline: A compelling, attention-grabbing headline (max 60 characters)
 - subtitle: A supporting subtitle that adds context (max 100 characters)
 - description: A brief description explaining the value proposition (max 200 characters)
-- redirect_description: A text describing where user will go after signup, mentioning the actual destination (max 80 characters)
+- redirect_description: A text describing where user will go after signup, include the actual link ${originalLink} (max 80 characters)
 
 Return ONLY valid JSON with these exact keys: headline, subtitle, description, redirect_description`;
 
@@ -73,43 +77,73 @@ Return ONLY valid JSON with these exact keys: headline, subtitle, description, r
       throw new Error("Failed to parse AI response");
     }
 
-    // Generate image
+    // Generate main image
     console.log("Generating main image...");
     const imagePrompt = `Create a professional, modern hero image for a landing page about: "${webResultTitle}". The image should be clean, visually appealing, and suitable for a business/marketing context. No text in the image.`;
 
-    const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          { role: "user", content: imagePrompt }
-        ],
-        modalities: ["image", "text"]
-      }),
-    });
+    let mainImageUrl = defaultMainImageUrl;
+    try {
+      const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image-preview",
+          messages: [{ role: "user", content: imagePrompt }],
+          modalities: ["image", "text"]
+        }),
+      });
 
-    // Default placeholder image if AI generation fails
-    const defaultImageUrl = "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=400&fit=crop";
-    
-    let mainImageUrl = defaultImageUrl;
-    if (imageResponse.ok) {
-      const imageData = await imageResponse.json();
-      const generatedImage = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      if (generatedImage) {
-        mainImageUrl = generatedImage;
-        console.log("Image generated successfully");
-      } else {
-        console.log("Using default image as AI did not return an image");
+      if (imageResponse.ok) {
+        const imageData = await imageResponse.json();
+        const generatedImage = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (generatedImage) {
+          mainImageUrl = generatedImage;
+          console.log("Main image generated successfully");
+        }
       }
-    } else {
-      console.error("Image generation failed, using default image:", await imageResponse.text());
+    } catch (imgError) {
+      console.error("Image generation failed, using default:", imgError);
     }
 
-    return new Response(JSON.stringify({ ...parsedContent, main_image_url: mainImageUrl }), {
+    // Generate logo
+    console.log("Generating logo...");
+    const logoPrompt = `Create a simple, professional logo icon for a brand related to: "${webResultTitle}". Minimal design, single icon, no text, suitable for a modern website. Clean background.`;
+
+    let logoUrl = defaultLogoUrl;
+    try {
+      const logoResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image-preview",
+          messages: [{ role: "user", content: logoPrompt }],
+          modalities: ["image", "text"]
+        }),
+      });
+
+      if (logoResponse.ok) {
+        const logoData = await logoResponse.json();
+        const generatedLogo = logoData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (generatedLogo) {
+          logoUrl = generatedLogo;
+          console.log("Logo generated successfully");
+        }
+      }
+    } catch (logoError) {
+      console.error("Logo generation failed, using default:", logoError);
+    }
+
+    return new Response(JSON.stringify({ 
+      ...parsedContent, 
+      main_image_url: mainImageUrl,
+      logo_url: logoUrl 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {

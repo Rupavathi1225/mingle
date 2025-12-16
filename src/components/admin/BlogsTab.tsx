@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, ExternalLink, Loader2, Sparkles, Copy } from "lucide-react";
+import { Plus, Edit, Trash2, ExternalLink, Loader2, Sparkles, Copy, Search, ImageIcon } from "lucide-react";
 import BulkActionToolbar from "./BulkActionToolbar";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 
@@ -31,8 +31,11 @@ interface GeneratedSearch {
   selected: boolean;
 }
 
+const DEFAULT_BLOG_IMAGE = "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=800&h=400&fit=crop";
+
 const BlogsTab = () => {
   const [blogs, setBlogs] = useState<Blog[]>([]);
+  const [filteredBlogs, setFilteredBlogs] = useState<Blog[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState<Blog | null>(null);
@@ -46,14 +49,30 @@ const BlogsTab = () => {
   const [featuredImage, setFeaturedImage] = useState("");
   const [status, setStatus] = useState("draft");
   const [generatedSearches, setGeneratedSearches] = useState<GeneratedSearch[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchBlogs();
   }, []);
 
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const filtered = blogs.filter(b => 
+        b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.author?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.category?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredBlogs(filtered);
+    } else {
+      setFilteredBlogs(blogs);
+    }
+  }, [searchQuery, blogs]);
+
   const fetchBlogs = async () => {
     const { data } = await supabase.from("blogs").select("*").order("created_at", { ascending: false });
     setBlogs(data || []);
+    setFilteredBlogs(data || []);
   };
 
   const generateSlug = (text: string) => text.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
@@ -69,7 +88,7 @@ const BlogsTab = () => {
     setSelectedIds(newSet);
   };
 
-  const handleSelectAll = (checked: boolean) => setSelectedIds(checked ? new Set(blogs.map(b => b.id)) : new Set());
+  const handleSelectAll = (checked: boolean) => setSelectedIds(checked ? new Set(filteredBlogs.map(b => b.id)) : new Set());
 
   const handleExportAll = () => {
     downloadCSV(convertToCSV(blogs, ['id', 'title', 'slug', 'author', 'category', 'status']), 'blogs_all.csv');
@@ -106,19 +125,12 @@ const BlogsTab = () => {
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedIds);
-    
-    // Get related searches for these blogs
     const { data: relatedSearches } = await supabase.from('related_searches').select('id').in('blog_id', ids);
     const rsIds = relatedSearches?.map(rs => rs.id) || [];
-    
-    // Delete click tracking for related searches
     if (rsIds.length > 0) {
       await supabase.from('click_tracking').delete().in('related_search_id', rsIds);
     }
-    
-    // Delete related searches
     await supabase.from('related_searches').delete().in('blog_id', ids);
-    
     const { error } = await supabase.from('blogs').delete().in('id', ids);
     if (error) {
       toast.error("Failed to delete blogs");
@@ -143,6 +155,11 @@ const BlogsTab = () => {
     } finally {
       setIsGeneratingImage(false);
     }
+  };
+
+  const handleUseDefaultImage = () => {
+    setFeaturedImage(DEFAULT_BLOG_IMAGE);
+    toast.success("Default image applied");
   };
 
   const generateContent = async () => {
@@ -176,15 +193,11 @@ const BlogsTab = () => {
   const toggleSearchSelection = (index: number) => {
     const selectedCount = generatedSearches.filter(s => s.selected).length;
     const search = generatedSearches[index];
-    
     if (!search.selected && selectedCount >= 4) {
       toast.error("Maximum 4 related searches can be selected");
       return;
     }
-    
-    setGeneratedSearches(prev => prev.map((s, i) => 
-      i === index ? { ...s, selected: !s.selected } : s
-    ));
+    setGeneratedSearches(prev => prev.map((s, i) => i === index ? { ...s, selected: !s.selected } : s));
   };
 
   const resetForm = () => {
@@ -233,13 +246,9 @@ const BlogsTab = () => {
       blogId = data.id;
     }
 
-    // Save selected related searches
     const selectedSearches = generatedSearches.filter(s => s.selected);
     if (selectedSearches.length > 0 && blogId) {
-      // First, remove any existing related searches for this blog
       await supabase.from("related_searches").delete().eq("blog_id", blogId);
-      
-      // Insert new selected searches
       const searchesToInsert = selectedSearches.map((s, idx) => ({
         search_text: s.text,
         title: s.text,
@@ -249,11 +258,7 @@ const BlogsTab = () => {
         position: idx + 1,
         is_active: true,
       }));
-      
-      const { error: searchError } = await supabase.from("related_searches").insert(searchesToInsert);
-      if (searchError) {
-        console.error("Failed to save related searches:", searchError);
-      }
+      await supabase.from("related_searches").insert(searchesToInsert);
     }
 
     toast.success(editingBlog ? "Blog updated" : "Blog created");
@@ -271,36 +276,22 @@ const BlogsTab = () => {
     setContent(blog.content || "");
     setFeaturedImage(blog.featured_image || "");
     setStatus(blog.status || "draft");
-    
-    // Load existing related searches for this blog
-    const { data: searches } = await supabase
-      .from("related_searches")
-      .select("search_text")
-      .eq("blog_id", blog.id)
-      .order("display_order");
-    
+    const { data: searches } = await supabase.from("related_searches").select("search_text").eq("blog_id", blog.id).order("display_order");
     if (searches?.length) {
       setGeneratedSearches(searches.map(s => ({ text: s.search_text, selected: true })));
     } else {
       setGeneratedSearches([]);
     }
-    
     setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    // Get related searches for this blog
     const { data: relatedSearches } = await supabase.from('related_searches').select('id').eq('blog_id', id);
     const rsIds = relatedSearches?.map(rs => rs.id) || [];
-    
-    // Delete click tracking for related searches
     if (rsIds.length > 0) {
       await supabase.from('click_tracking').delete().in('related_search_id', rsIds);
     }
-    
-    // Delete related searches
     await supabase.from("related_searches").delete().eq("blog_id", id);
-    
     const { error } = await supabase.from("blogs").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete blog");
@@ -316,131 +307,123 @@ const BlogsTab = () => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Blogs Management</CardTitle>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />Add Blog</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingBlog ? "Edit Blog" : "Create New Blog"}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              {/* Title */}
-              <div>
-                <Label>Title *</Label>
-                <Input value={title} onChange={(e) => handleTitleChange(e.target.value)} placeholder="Blog title" />
-              </div>
-              
-              {/* Slug */}
-              <div>
-                <Label>Slug *</Label>
-                <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="blog-slug" />
-              </div>
-              
-              {/* Author */}
-              <div>
-                <Label>Author</Label>
-                <Input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Author name" />
-              </div>
-              
-              {/* Category */}
-              <div>
-                <Label>Category</Label>
-                <Select value={category || "none"} onValueChange={(val) => setCategory(val === "none" ? "" : val)}>
-                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                  <SelectContent className="bg-background border z-50">
-                    <SelectItem value="none">Select category</SelectItem>
-                    <SelectItem value="Finance">Finance</SelectItem>
-                    <SelectItem value="Technology">Technology</SelectItem>
-                    <SelectItem value="Lifestyle">Lifestyle</SelectItem>
-                    <SelectItem value="Business">Business</SelectItem>
-                    <SelectItem value="Health">Health</SelectItem>
-                    <SelectItem value="Education">Education</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {/* Content */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label>Content *</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={generateContent} disabled={isGeneratingContent || !title}>
-                    {isGeneratingContent ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
-                    Generate AI Content
-                  </Button>
+        <div className="flex items-center gap-4">
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search blogs..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="w-4 h-4 mr-2" />Add Blog</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingBlog ? "Edit Blog" : "Create New Blog"}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Title *</Label>
+                  <Input value={title} onChange={(e) => handleTitleChange(e.target.value)} placeholder="Blog title" />
                 </div>
-                <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Blog content..." rows={4} />
-              </div>
-              
-              {/* Featured Image */}
-              <div>
-                <Label>Featured Image</Label>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={generateImage} disabled={isGeneratingImage || !title}>
-                    {isGeneratingImage ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
-                    Generate AI Image
-                  </Button>
+                <div>
+                  <Label>Slug *</Label>
+                  <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="blog-slug" />
                 </div>
-                <Input value={featuredImage} onChange={(e) => setFeaturedImage(e.target.value)} placeholder="Or paste image URL here..." className="mt-2" />
-              </div>
-              
-              {/* Related Searches Selection - Vertical Layout with Inline Editing */}
-              {generatedSearches.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Select Related Searches for Landing Page (max 4)</Label>
-                  <p className="text-xs text-muted-foreground">Click to select. Edit text inline before saving.</p>
-                  <div className="border rounded-lg p-3 space-y-2 max-h-64 overflow-y-auto">
-                    {generatedSearches.map((search, idx) => (
-                      <div 
-                        key={idx}
-                        className={`flex items-center gap-3 p-2 rounded transition-colors ${
-                          search.selected ? 'bg-primary/20 border border-primary' : 'hover:bg-muted border border-transparent'
-                        }`}
-                      >
-                        <Checkbox 
-                          checked={search.selected} 
-                          onCheckedChange={() => toggleSearchSelection(idx)}
-                        />
-                        <Input
-                          value={search.text}
-                          onChange={(e) => {
-                            setGeneratedSearches(prev => prev.map((s, i) => 
-                              i === idx ? { ...s, text: e.target.value } : s
-                            ));
-                          }}
-                          className="flex-1"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    ))}
+                <div>
+                  <Label>Author</Label>
+                  <Input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Author name" />
+                </div>
+                <div>
+                  <Label>Category</Label>
+                  <Select value={category || "none"} onValueChange={(val) => setCategory(val === "none" ? "" : val)}>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      <SelectItem value="none">Select category</SelectItem>
+                      <SelectItem value="Finance">Finance</SelectItem>
+                      <SelectItem value="Technology">Technology</SelectItem>
+                      <SelectItem value="Lifestyle">Lifestyle</SelectItem>
+                      <SelectItem value="Business">Business</SelectItem>
+                      <SelectItem value="Health">Health</SelectItem>
+                      <SelectItem value="Education">Education</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label>Content *</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={generateContent} disabled={isGeneratingContent || !title}>
+                      {isGeneratingContent ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                      Generate AI Content
+                    </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">{selectedSearchCount}/4 selected</p>
+                  <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Blog content..." rows={4} />
                 </div>
-              )}
-              
-              {/* Status */}
-              <div>
-                <Label>Status</Label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div>
+                  <Label>Featured Image</Label>
+                  <div className="flex gap-2 mb-2">
+                    <Button type="button" variant="outline" size="sm" onClick={generateImage} disabled={isGeneratingImage || !title}>
+                      {isGeneratingImage ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                      Generate AI Image
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={handleUseDefaultImage}>
+                      <ImageIcon className="w-4 h-4 mr-1" />
+                      Use Default
+                    </Button>
+                  </div>
+                  <Input value={featuredImage} onChange={(e) => setFeaturedImage(e.target.value)} placeholder="Or paste image URL here..." />
+                </div>
+                {generatedSearches.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Select Related Searches for Landing Page (max 4)</Label>
+                    <p className="text-xs text-muted-foreground">Click to select. Edit text inline before saving.</p>
+                    <div className="border rounded-lg p-3 space-y-2 max-h-64 overflow-y-auto">
+                      {generatedSearches.map((search, idx) => (
+                        <div 
+                          key={idx}
+                          className={`flex items-center gap-3 p-2 rounded transition-colors ${search.selected ? 'bg-primary/20 border border-primary' : 'hover:bg-muted border border-transparent'}`}
+                        >
+                          <Checkbox checked={search.selected} onCheckedChange={() => toggleSearchSelection(idx)} />
+                          <Input
+                            value={search.text}
+                            onChange={(e) => {
+                              setGeneratedSearches(prev => prev.map((s, i) => i === idx ? { ...s, text: e.target.value } : s));
+                            }}
+                            className="flex-1"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{selectedSearchCount}/4 selected</p>
+                  </div>
+                )}
+                <div>
+                  <Label>Status</Label>
+                  <Select value={status} onValueChange={setStatus}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleSave} className="w-full">{editingBlog ? "Update Blog" : "Create Blog"}</Button>
               </div>
-              
-              <Button onClick={handleSave} className="w-full">{editingBlog ? "Update Blog" : "Create Blog"}</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         <BulkActionToolbar
           selectedCount={selectedIds.size}
-          totalCount={blogs.length}
+          totalCount={filteredBlogs.length}
           onSelectAll={handleSelectAll}
-          isAllSelected={selectedIds.size === blogs.length && blogs.length > 0}
+          isAllSelected={selectedIds.size === filteredBlogs.length && filteredBlogs.length > 0}
           onExportAll={handleExportAll}
           onExportSelected={handleExportSelected}
           onCopy={handleCopy}
@@ -449,7 +432,7 @@ const BlogsTab = () => {
           onDelete={handleBulkDelete}
         />
         <div className="space-y-2">
-          {blogs.map((blog) => (
+          {filteredBlogs.map((blog) => (
             <div key={blog.id} className="flex items-center justify-between p-3 border rounded-lg">
               <div className="flex items-center gap-3">
                 <Checkbox checked={selectedIds.has(blog.id)} onCheckedChange={() => toggleSelection(blog.id)} />
@@ -459,13 +442,6 @@ const BlogsTab = () => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="ghost" size="icon" onClick={() => {
-                  const fullUrl = `${window.location.origin}/blog/${blog.slug}`;
-                  navigator.clipboard.writeText(fullUrl);
-                  toast.success("Link copied!");
-                }}>
-                  <Copy className="w-4 h-4" />
-                </Button>
                 <Button variant="ghost" size="icon" onClick={() => window.open(`/blog/${blog.slug}`, '_blank')}>
                   <ExternalLink className="w-4 h-4" />
                 </Button>
@@ -478,7 +454,9 @@ const BlogsTab = () => {
               </div>
             </div>
           ))}
-          {blogs.length === 0 && <p className="text-center text-muted-foreground py-8">No blogs found</p>}
+          {filteredBlogs.length === 0 && (
+            <p className="text-center text-muted-foreground py-4">No blogs found</p>
+          )}
         </div>
       </CardContent>
     </Card>

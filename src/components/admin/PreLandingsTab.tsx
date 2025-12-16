@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Save, Sparkles, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Save, Sparkles, Loader2, Search, ImageIcon } from "lucide-react";
 
 interface Prelanding {
   id: string;
@@ -27,8 +27,12 @@ interface WebResult {
   original_link: string;
 }
 
+const DEFAULT_LOGO_URL = "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&h=200&fit=crop";
+const DEFAULT_MAIN_IMAGE_URL = "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=400&fit=crop";
+
 const PreLandingsTab = () => {
   const [prelandings, setPrelandings] = useState<Prelanding[]>([]);
+  const [filteredPrelandings, setFilteredPrelandings] = useState<Prelanding[]>([]);
   const [webResults, setWebResults] = useState<WebResult[]>([]);
   const [selectedWebResult, setSelectedWebResult] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -40,11 +44,26 @@ const PreLandingsTab = () => {
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchPrelandings();
     fetchWebResults();
   }, []);
+
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const filtered = prelandings.filter(p => 
+        p.headline.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.subtitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredPrelandings(filtered);
+    } else {
+      setFilteredPrelandings(prelandings);
+    }
+  }, [searchQuery, prelandings]);
 
   const fetchWebResults = async () => {
     const { data } = await supabase.from('web_results').select('id, title, description, original_link').order('title');
@@ -53,7 +72,10 @@ const PreLandingsTab = () => {
 
   const fetchPrelandings = async () => {
     const { data } = await supabase.from('prelandings').select('*').order('created_at', { ascending: false });
-    if (data) setPrelandings(data);
+    if (data) {
+      setPrelandings(data);
+      setFilteredPrelandings(data);
+    }
   };
 
   const generateKey = (text: string) => {
@@ -92,7 +114,10 @@ const PreLandingsTab = () => {
         if (data.main_image_url) {
           setMainImageUrl(data.main_image_url);
         }
-        toast({ title: "Success", description: "Content and image generated with AI!" });
+        if (data.logo_url) {
+          setLogoUrl(data.logo_url);
+        }
+        toast({ title: "Success", description: "Content, image, and logo generated with AI!" });
       }
     } catch (error) {
       console.error("AI generation error:", error);
@@ -100,6 +125,16 @@ const PreLandingsTab = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleUseDefaultLogo = () => {
+    setLogoUrl(DEFAULT_LOGO_URL);
+    toast({ title: "Success", description: "Default logo applied" });
+  };
+
+  const handleUseDefaultImage = () => {
+    setMainImageUrl(DEFAULT_MAIN_IMAGE_URL);
+    toast({ title: "Success", description: "Default image applied" });
   };
 
   const handleSave = async () => {
@@ -246,19 +281,31 @@ const PreLandingsTab = () => {
 
           <div>
             <label className="text-sm text-muted-foreground mb-2 block">Logo URL</label>
-            <Input
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              className="bg-secondary border-border"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                className="bg-secondary border-border flex-1"
+                placeholder="Logo URL or use default"
+              />
+              <Button variant="outline" size="icon" onClick={handleUseDefaultLogo} title="Use Default Logo">
+                <ImageIcon className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <div>
             <label className="text-sm text-muted-foreground mb-2 block">Main Image URL</label>
-            <Input
-              value={mainImageUrl}
-              onChange={(e) => setMainImageUrl(e.target.value)}
-              className="bg-secondary border-border"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={mainImageUrl}
+                onChange={(e) => setMainImageUrl(e.target.value)}
+                className="bg-secondary border-border flex-1"
+                placeholder="Image URL or use default"
+              />
+              <Button variant="outline" size="icon" onClick={handleUseDefaultImage} title="Use Default Image">
+                <ImageIcon className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           <div>
@@ -287,10 +334,21 @@ const PreLandingsTab = () => {
       </div>
 
       <div className="bg-card p-6 rounded-lg border border-border">
-        <h2 className="text-xl font-bold text-primary mb-6">Existing Pre-Landings</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-primary">Existing Pre-Landings</h2>
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search pre-landings..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-secondary border-border"
+            />
+          </div>
+        </div>
         
         <div className="space-y-3">
-          {prelandings.map((prelanding) => (
+          {filteredPrelandings.map((prelanding) => (
             <div key={prelanding.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
               <div>
                 <p className="font-medium text-foreground">{prelanding.headline}</p>
@@ -306,6 +364,9 @@ const PreLandingsTab = () => {
               </div>
             </div>
           ))}
+          {filteredPrelandings.length === 0 && (
+            <p className="text-center text-muted-foreground py-4">No pre-landings found</p>
+          )}
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Eye } from "lucide-react";
+import { Pencil, Trash2, Eye, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import BulkActionToolbar from "./BulkActionToolbar";
@@ -39,6 +39,7 @@ interface ClickDetail {
 
 const RelatedSearchesTab = () => {
   const [searches, setSearches] = useState<RelatedSearch[]>([]);
+  const [filteredSearches, setFilteredSearches] = useState<RelatedSearch[]>([]);
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchText, setSearchText] = useState("");
@@ -52,15 +53,31 @@ const RelatedSearchesTab = () => {
   const [clickDetails, setClickDetails] = useState<ClickDetail[]>([]);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [selectedSearchName, setSelectedSearchName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchSearches();
     fetchBlogs();
   }, []);
 
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const filtered = searches.filter(s => 
+        s.search_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.title?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredSearches(filtered);
+    } else {
+      setFilteredSearches(searches);
+    }
+  }, [searchQuery, searches]);
+
   const fetchSearches = async () => {
     const { data } = await supabase.from('related_searches').select('*').order('display_order');
-    if (data) setSearches(data as RelatedSearch[]);
+    if (data) {
+      setSearches(data as RelatedSearch[]);
+      setFilteredSearches(data as RelatedSearch[]);
+    }
   };
 
   const fetchBlogs = async () => {
@@ -86,7 +103,7 @@ const RelatedSearchesTab = () => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(searches.map(s => s.id)));
+      setSelectedIds(new Set(filteredSearches.map(s => s.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -131,17 +148,12 @@ const RelatedSearchesTab = () => {
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedIds);
-    
-    // Delete related records first to avoid foreign key constraint errors
     await supabase.from('click_tracking').delete().in('related_search_id', ids);
-    
     const { error } = await supabase.from('related_searches').delete().in('id', ids);
-    
     if (error) {
       toast({ title: "Error", description: "Failed to delete searches", variant: "destructive" });
       return;
     }
-    
     toast({ title: "Success", description: `Deleted ${ids.length} searches` });
     fetchSearches();
     setSelectedIds(new Set());
@@ -187,16 +199,12 @@ const RelatedSearchesTab = () => {
   };
 
   const handleDelete = async (id: string) => {
-    // Delete related records first to avoid foreign key constraint errors
     await supabase.from('click_tracking').delete().eq('related_search_id', id);
-    
     const { error } = await supabase.from('related_searches').delete().eq('id', id);
-    
     if (error) {
       toast({ title: "Error", description: "Failed to delete search", variant: "destructive" });
       return;
     }
-    
     toast({ title: "Success", description: "Search deleted!" });
     fetchSearches();
   };
@@ -218,7 +226,6 @@ const RelatedSearchesTab = () => {
       .select('*')
       .eq('related_search_id', search.id)
       .order('timestamp', { ascending: false });
-    
     setClickDetails(data || []);
     setSelectedSearchName(search.search_text);
     setShowBreakdown(true);
@@ -315,12 +322,23 @@ const RelatedSearchesTab = () => {
       </div>
 
       <div className="bg-card p-6 rounded-lg border border-border">
-        <h2 className="text-xl font-bold text-primary mb-6">Existing Related Searches</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-primary">Existing Related Searches</h2>
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-secondary border-border"
+            />
+          </div>
+        </div>
         
         <BulkActionToolbar
-          totalCount={searches.length}
+          totalCount={filteredSearches.length}
           selectedCount={selectedIds.size}
-          isAllSelected={searches.length > 0 && selectedIds.size === searches.length}
+          isAllSelected={filteredSearches.length > 0 && selectedIds.size === filteredSearches.length}
           onSelectAll={handleSelectAll}
           onExportAll={handleExportAll}
           onExportSelected={handleExportSelected}
@@ -331,7 +349,7 @@ const RelatedSearchesTab = () => {
         />
 
         <div className="space-y-3">
-          {searches.map((search) => (
+          {filteredSearches.map((search) => (
             <div key={search.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
               <div className="flex items-center gap-3">
                 <Checkbox
@@ -364,6 +382,9 @@ const RelatedSearchesTab = () => {
               </div>
             </div>
           ))}
+          {filteredSearches.length === 0 && (
+            <p className="text-center text-muted-foreground py-4">No searches found</p>
+          )}
         </div>
       </div>
 
