@@ -61,7 +61,6 @@ const WebResultsTab = () => {
   const [clickDetails, setClickDetails] = useState<ClickDetail[]>([]);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [selectedResultName, setSelectedResultName] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
   
   // AI Generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -353,14 +352,9 @@ const WebResultsTab = () => {
 
   const selectedGeneratedCount = generatedResults.filter(r => r.selected).length;
 
-  const filteredResults = results.filter(r => {
-    const matchesPage = selectedPageFilter === "all" || r.web_result_page === selectedPageFilter;
-    const matchesSearch = searchQuery === "" || 
-      r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.original_link.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesPage && matchesSearch;
-  });
+  const filteredResults = selectedPageFilter === "all" 
+    ? results 
+    : results.filter(r => r.web_result_page === selectedPageFilter);
 
   return (
     <div className="space-y-6">
@@ -560,17 +554,6 @@ const WebResultsTab = () => {
       <div className="bg-card p-6 rounded-lg border border-border">
         <h2 className="text-xl font-bold text-primary mb-6">Existing Web Results</h2>
         
-        {/* Search Box */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search web results by title, description, or link..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-secondary border-border"
-          />
-        </div>
-        
         {/* Page Filter Tabs */}
         <div className="flex flex-wrap gap-2 mb-4">
           <Button
@@ -622,7 +605,6 @@ const WebResultsTab = () => {
                 )}
                 <div>
                   <p className="font-medium text-foreground">{result.title}</p>
-                  <p className="text-xs text-muted-foreground truncate max-w-xs">{result.original_link}</p>
                   <p className="text-sm text-muted-foreground">
                     wr={result.web_result_page} 
                     {result.is_sponsored && <span className="text-yellow-500"> • Sponsored</span>}
