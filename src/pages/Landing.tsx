@@ -38,16 +38,24 @@ const Landing = () => {
   };
 
   const fetchSearches = async () => {
-    // Fetch related searches that have no blog_id (global) or are active
+    // Fetch 4 active related searches with different web_result_pages
     const { data } = await supabase
       .from('related_searches')
       .select('*')
       .eq('is_active', true)
-      .is('blog_id', null)
-      .order('display_order', { ascending: true });
+      .order('display_order', { ascending: true })
+      .limit(4);
     
     console.log("Fetched searches for landing:", data);
-    if (data) setSearches(data);
+    
+    // Assign different web result pages (1, 2, 3, 4) to each search
+    if (data) {
+      const searchesWithPages = data.map((search, index) => ({
+        ...search,
+        web_result_page: index + 1
+      }));
+      setSearches(searchesWithPages);
+    }
   };
 
   const initSession = async () => {
