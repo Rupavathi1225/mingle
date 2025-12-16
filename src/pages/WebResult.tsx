@@ -154,6 +154,14 @@ const WebResult = () => {
               >
                 {getLogoDisplay(result)}
                 <div className="flex-1">
+                  {/* Backlink / Source name */}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                    <span className="font-medium">{result.title.split(' ')[0]}</span>
+                  </div>
+                  {/* Clickable URL */}
+                  <p className="text-xs text-muted-foreground mb-1 truncate max-w-md">
+                    {window.location.origin}/webresult/{pageNumber}
+                  </p>
                   <h3 className="text-primary hover:underline font-medium text-lg">{result.title}</h3>
                   <p className="text-muted-foreground text-sm mt-1">{result.description}</p>
                 </div>
