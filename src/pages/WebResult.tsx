@@ -146,7 +146,7 @@ const WebResult = () => {
         {normalResults.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-muted-foreground text-sm font-medium">Web Results</h2>
-            {normalResults.map((result) => (
+            {normalResults.map((result, index) => (
               <div
                 key={result.id}
                 className="flex items-start gap-4 py-4 cursor-pointer hover:bg-secondary/30 px-4 rounded-lg transition-colors"
@@ -158,9 +158,15 @@ const WebResult = () => {
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                     <span className="font-medium">{result.title.split(' ')[0]}</span>
                   </div>
-                  {/* Clickable URL */}
-                  <p className="text-xs text-muted-foreground mb-1 truncate max-w-md">
-                    {window.location.origin}/webresult/{pageNumber}
+                  {/* Masked clickable URL */}
+                  <p 
+                    className="text-xs text-muted-foreground mb-1 hover:underline cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleResultClick(result);
+                    }}
+                  >
+                    minglemoody.lid={sponsoredResults.length + index + 1} <span className="cursor-pointer">⋮</span>
                   </p>
                   <h3 className="text-primary hover:underline font-medium text-lg">{result.title}</h3>
                   <p className="text-muted-foreground text-sm mt-1">{result.description}</p>
