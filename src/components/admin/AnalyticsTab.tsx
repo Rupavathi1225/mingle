@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Users, Eye, MousePointer, Search } from "lucide-react";
 
 interface AnalyticsData {
@@ -53,6 +54,7 @@ const AnalyticsTab = () => {
   const [showSearchBreakdown, setShowSearchBreakdown] = useState(false);
   const [clickDetails, setClickDetails] = useState<ClickDetail[]>([]);
   const [selectedSearchName, setSelectedSearchName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchAnalytics();
@@ -157,8 +159,29 @@ const AnalyticsTab = () => {
 
   const uniqueIPs = new Set(clickDetails.map(c => c.ip_address).filter(Boolean)).size;
 
+  const filteredSearchStats = relatedSearchStats.filter(s => 
+    s.search_text.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredSessionData = sessionData.filter(s =>
+    s.session_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.country || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.ip_address || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
+      {/* Search Box */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search sessions, countries, IP addresses..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10 bg-secondary border-border"
+        />
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-card border-border">
@@ -217,7 +240,7 @@ const AnalyticsTab = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {relatedSearchStats.map((search) => (
+                {filteredSearchStats.map((search) => (
                   <TableRow key={search.id}>
                     <TableCell className="font-medium">{search.search_text}</TableCell>
                     <TableCell>
@@ -232,7 +255,7 @@ const AnalyticsTab = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-                {relatedSearchStats.length === 0 && (
+                {filteredSearchStats.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={3} className="text-center text-muted-foreground">No related searches found</TableCell>
                   </TableRow>
@@ -263,7 +286,7 @@ const AnalyticsTab = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessionData.map((session) => (
+                {filteredSessionData.map((session) => (
                   <TableRow key={session.session_id}>
                     <TableCell className="font-mono text-xs">{session.session_id.slice(0, 12)}...</TableCell>
                     <TableCell>{session.ip_address || '-'}</TableCell>

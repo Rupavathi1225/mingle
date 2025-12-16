@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, getDeviceType } from "@/hooks/useSession";
+import { ArrowRight } from "lucide-react";
 
 interface LandingContent {
   title: string;
@@ -84,16 +85,21 @@ const Landing = () => {
         </div>
 
         {searches.length > 0 && (
-          <div className="max-w-2xl mx-auto">
-            <h3 className="text-xl font-semibold text-foreground text-center mb-6">Related Searches</h3>
-            <div className="flex flex-col gap-3">
-              {searches.map((search) => (
+          <div className="max-w-md mx-auto">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide text-center mb-4">Related Searches</h3>
+            <div className="flex flex-col gap-2">
+              {searches.map((search, index) => (
                 <button
                   key={search.id}
                   onClick={() => handleSearchClick(search)}
-                  className="bg-secondary hover:bg-secondary/80 text-foreground px-6 py-4 rounded-lg text-left transition-colors w-full"
+                  className={`flex items-center justify-between px-4 py-2.5 rounded-md border transition-all text-left ${
+                    index === 0 
+                      ? 'bg-primary/20 border-primary text-primary hover:bg-primary/30' 
+                      : 'bg-secondary/30 border-border text-primary hover:bg-secondary/50'
+                  }`}
                 >
-                  {search.title || search.search_text}
+                  <span className="text-sm">{search.title || search.search_text}</span>
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               ))}
             </div>
