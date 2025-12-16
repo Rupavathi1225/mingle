@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, User, Tag, ArrowRight } from "lucide-react";
-import { format } from "date-fns";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 interface Blog {
   id: string;
@@ -114,27 +113,6 @@ const Blog = () => {
           {blog?.title}
         </h1>
 
-        {/* Meta info - Horizontal */}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-6">
-          {blog?.author && (
-            <div className="flex items-center gap-1">
-              <User className="h-4 w-4" />
-              <span>{blog.author}</span>
-            </div>
-          )}
-          {blog?.category && (
-            <div className="flex items-center gap-1">
-              <Tag className="h-4 w-4" />
-              <span>{blog.category}</span>
-            </div>
-          )}
-          {blog?.created_at && (
-            <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              <span>{format(new Date(blog.created_at), "MMMM d, yyyy")}</span>
-            </div>
-          )}
-        </div>
 
         {/* Content */}
         <div className="prose prose-invert max-w-none mb-8">
